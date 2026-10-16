@@ -12,6 +12,8 @@ python -m http.server 8000
 
 Then open http://localhost:8000. You can also double-click `index.html`, but a local server is more reliable for map tiles and geocoding.
 
+**Deploying a change:** bump the `?v=` stamp on the CSS and JS links in `index.html` (for example `?v=20261016` to `?v=20261017`). GitHub Pages lets browsers cache files for 10 minutes, and the stamp makes the page and its scripts update together.
+
 ## How it works
 
 | Piece | What it does |
