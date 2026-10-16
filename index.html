@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700;800&display=swap">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-  <link rel="stylesheet" href="css/styles.css?v=20261016e">
+  <link rel="stylesheet" href="css/styles.css?v=20261016f">
 </head>
 <body data-mode="basic">
   <header class="site-header">
@@ -33,7 +33,7 @@
   <section class="map-wrap" aria-label="Choose your field">
     <div id="map" role="application" aria-label="Map. Click to drop a pin on your field."></div>
 
-    <div class="map-card">
+    <div id="map-card" class="map-card">
       <form id="search-form" class="search">
         <label for="search-input" class="sr-only">Address, town, or coordinates</label>
         <div class="search-box">
@@ -98,7 +98,7 @@
         <label class="field">
           <span>Shortest useful window</span>
           <span class="input-unit"><input id="minhours-input" type="number" min="1" max="8" step="1" inputmode="numeric"><em>h</em></span>
-          <small>How long the job takes.</small>
+          <small>How long the job takes. Default 2 h.</small>
         </label>
         <label class="field">
           <span>Rules</span>
@@ -187,7 +187,7 @@
   </footer>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-  <script src="js/rules.js?v=20261016e"></script>
-  <script src="js/app.js?v=20261016e"></script>
+  <script src="js/rules.js?v=20261016f"></script>
+  <script src="js/app.js?v=20261016f"></script>
 </body>
 </html>

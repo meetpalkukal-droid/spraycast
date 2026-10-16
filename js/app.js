@@ -13,7 +13,7 @@
   const CACHE_TTL_MS = 60 * 60 * 1000; // models update hourly
   const COMPASS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
 
-  const DEFAULTS = { profile: "general", boomIn: R.DEFAULT_SETUP.boomIn, cropIn: R.DEFAULT_SETUP.cropIn, minHours: 1 };
+  const DEFAULTS = { profile: "general", boomIn: R.DEFAULT_SETUP.boomIn, cropIn: R.DEFAULT_SETUP.cropIn, minHours: 2 };
   const LIMITS = { boomIn: [6, 72], cropIn: [0, 120], minHours: [1, 8] };
 
   const ICONS = [
@@ -69,7 +69,19 @@
   }
 
   // ---------- Map ----------
-  const map = L.map("map", { zoomControl: false }).setView([44.3, -115.5], 6);
+  // Open on the lower 48 states, fitted into the part of the map the search and answer cards don't cover.
+  const LOWER_48 = [[24.4, -124.8], [49.4, -66.9]];
+  const map = L.map("map", { zoomControl: false, zoomSnap: 0.25 });
+  function showLower48() {
+    const card = $("map-card"), answer = $("answer");
+    // Phones: the cards span the width, so keep the states below/above them. Wide screens: beside them.
+    const below = { paddingTopLeft: [12, card.offsetTop + card.offsetHeight + 8], paddingBottomRight: [12, answer.offsetHeight + 28] };
+    const beside = { paddingTopLeft: [Math.max(card.offsetLeft + card.offsetWidth, answer.offsetLeft + answer.offsetWidth) + 8, 12], paddingBottomRight: [12, 28] };
+    const zoomFor = (o) => map.getBoundsZoom(LOWER_48, false, L.point(o.paddingTopLeft).add(o.paddingBottomRight));
+    const roomBeside = map.getSize().x - beside.paddingTopLeft[0] > map.getSize().x * 0.45;
+    map.fitBounds(LOWER_48, roomBeside && zoomFor(beside) > zoomFor(below) ? beside : below);
+  }
+  showLower48();
   const esri = "https://server.arcgisonline.com/ArcGIS/rest/services/";
   const satellite = L.layerGroup([
     L.tileLayer(esri + "World_Imagery/MapServer/tile/{z}/{y}/{x}", {
