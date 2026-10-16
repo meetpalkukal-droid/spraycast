@@ -28,31 +28,24 @@
   };
 
   // Wind thresholds apply at boom height, as the labels specify [4]. The forecast is for 10 m,
-  // so it is scaled with the FAO-56 logarithmic wind profile [10]:
-  //   u(z) = u10 · ln((z − d) / zom) / ln((10 − d) / zom),   d = 2/3 h,  zom = 0.123 h
-  // where h is crop height (FAO-56 Eq. 4). Below the 0.12 m grass reference, h = 0.12 m, which
-  // makes this exactly Eq. 47: u(z) = u10 · ln(67.8 z − 5.42) / ln(67.8 · 10 − 5.42).
-  const GRASS_H = 0.12;
+  // so it is scaled with the FAO-56 logarithmic wind profile over short grass (Eq. 47) [10]:
+  //   u(z) = u10 · ln(67.8 z − 5.42) / ln(67.8 · 10 − 5.42)
+  // Crop height only sets how high the boom is: z = crop height + boom height above the crop.
   const IN_TO_M = 0.0254;
-  // 24 in: label maximum boom height above the target or crop canopy [4]
-  const DEFAULT_SETUP = { boomIn: 24, cropIn: 0 };
+  // Boom 24 in: label maximum boom height above the target or crop canopy [4]. Crop 1 m (39.4 in).
+  const DEFAULT_SETUP = { boomIn: 24, cropIn: Math.round(100 / 2.54 * 10) / 10 };
 
-  function windAtHeight(u10, z, h) {
-    const hh = Math.max(h || 0, GRASS_H);
-    const d = (2 / 3) * hh, zom = 0.123 * hh;
-    return u10 * Math.log((z - d) / zom) / Math.log((10 - d) / zom);
-  }
-  // Ratio of boom-height wind to 10 m wind. Boom height is measured above the crop canopy.
-  function boomFactor(setup) {
+  const windAtHeight = (u10, z) => u10 * Math.log(67.8 * z - 5.42) / Math.log(67.8 * 10 - 5.42);
+  // Ratio of boom-height wind to 10 m wind.
+  const boomFactor = (setup) => {
     const s = setup || DEFAULT_SETUP;
-    const h = s.cropIn * IN_TO_M;
-    return windAtHeight(1, h + s.boomIn * IN_TO_M, h);
-  }
+    return windAtHeight(1, (s.cropIn + s.boomIn) * IN_TO_M);
+  };
   const boomWind = (u10, setup) => (isNum(u10) ? u10 * boomFactor(setup) : null);
 
   const GUST = { caution: 12, no: 15, spread: 8 };   // mph at 10 m, PROTOTYPE
   const INVERSION = { no: 0, caution: -0.3 };        // T(80 m) − T(2 m) in °C [1][5]
-  const DELTA_T = { low: 2, high: 8, no: 10 };       // °C [6]
+  const DELTA_T = { low: 2, high: 8, no: 10 };       // °C [6]; shown as 3.6 / 14.4 / 18 °F
   const RAIN = { no: 0.02, popCaution: 50 };         // inches per hour, % chance; PROTOTYPE
 
   // Wet-bulb temperature from air temperature (°C) and RH (%), Stull 2011 [7].
@@ -106,11 +99,11 @@
 
     if (isNum(h.t2) && isNum(h.rh)) {
       const dt = h.t2 - wetBulb(h.t2, Math.min(Math.max(h.rh, 5), 99));
-      const dtTxt = `Delta T ${fmt1(dt)} °C`;
+      const dtTxt = `Delta T ${fmt1(dF(dt))} °F`;
       if (dt > DELTA_T.no) add("deltat-high", LEVEL.NO, "Too hot/dry", `${dtTxt}. Droplets evaporate fast and fines can drift far.`);
-      else if (dt > DELTA_T.high) add("deltat-high", LEVEL.CAUTION, "Hot/dry", `${dtTxt} is above 8. Evaporation is high, so use coarser droplets.`);
-      else if (dt < DELTA_T.low) add("deltat-low", LEVEL.CAUTION, "Humid", `${dtTxt} is below 2. Fine droplets last longer, so watch for inversions.`);
-      else add("deltat", LEVEL.GOOD, "Delta T OK", `${dtTxt} is within the 2–8 range.`);
+      else if (dt > DELTA_T.high) add("deltat-high", LEVEL.CAUTION, "Hot/dry", `${dtTxt} is above 14.4 °F. Evaporation is high, so use coarser droplets.`);
+      else if (dt < DELTA_T.low) add("deltat-low", LEVEL.CAUTION, "Humid", `${dtTxt} is below 3.6 °F. Fine droplets last longer, so watch for inversions.`);
+      else add("deltat", LEVEL.GOOD, "Delta T OK", `${dtTxt} is within the 3.6–14.4 °F range.`);
     }
 
     if (isNum(h.precip) && h.precip >= RAIN.no) add("rain", LEVEL.NO, "Rain", `Rain expected (${h.precip.toFixed(2)} in).`);

@@ -45,7 +45,8 @@
     if (!R.PROFILES[out.profile]) out.profile = DEFAULTS.profile;
     Object.keys(LIMITS).forEach((k) => {
       const [lo, hi] = LIMITS[k];
-      const v = Math.round(Number(out[k]));
+      const n = Number(out[k]);
+      const v = k === "cropIn" ? Math.round(n * 10) / 10 : Math.round(n);
       out[k] = Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : DEFAULTS[k];
     });
     return out;
@@ -308,13 +309,13 @@
   }
 
   function confidence(i) {
-    if (i <= 1) return { text: "HRRR 3 km · high detail", cls: "conf-high" };
+    if (i <= 1) return { text: "HRRR 2-mile grid · high detail", cls: "conf-high" };
     if (i <= 3) return { text: "GFS · moderate confidence", cls: "conf-mid" };
     return { text: "GFS · for tentative planning", cls: "conf-low" };
   }
 
   function setupText(s) {
-    const over = s.cropIn > 0 ? `a ${s.cropIn} in crop` : "bare ground or a short crop";
+    const over = s.cropIn > 0 ? `a ${s.cropIn} in crop` : "bare ground";
     return `a ${s.boomIn} in boom over ${over}`;
   }
 
@@ -367,7 +368,7 @@
       : "";
     $("setup-note").hidden = state.mode !== "simple";
     $("setup-readout").textContent =
-      `Wind at your boom ≈ ${Math.round(R.boomFactor(setup) * 100)}% of the 10 m forecast (FAO-56 log wind profile).`;
+      `Wind at your boom ≈ ${Math.round(R.boomFactor(setup) * 100)}% of the 33 ft forecast (FAO-56 Eq. 47), with the boom ${((setup.cropIn + setup.boomIn) / 12).toFixed(1)} ft above the ground.`;
 
     renderWeek(days);
     if (state.mode === "simple") {
@@ -609,8 +610,8 @@
     box.appendChild(ul);
 
     const facts = [
-      h.wind != null && `Wind ${Math.round(h.wind)} mph at boom height (${Math.round(h.wind10)} mph at 10 m) from ${compass(h.dir)}`,
-      h.gust != null && `Gusts ${Math.round(h.gust)} mph at 10 m`,
+      h.wind != null && `Wind ${Math.round(h.wind)} mph at boom height (${Math.round(h.wind10)} mph at 33 ft) from ${compass(h.dir)}`,
+      h.gust != null && `Gusts ${Math.round(h.gust)} mph at 33 ft`,
       h.t2 != null && `Temperature ${toF(h.t2)} °F`,
       h.rh != null && `Humidity ${Math.round(h.rh)}%`,
       h.cloud != null && `Cloud cover ${Math.round(h.cloud)}%`,
