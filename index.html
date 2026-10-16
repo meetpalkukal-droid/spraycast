@@ -5,18 +5,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Spray Window Forecast</title>
   <meta name="description" content="7-day, field-specific spray condition forecast: wind at boom height, gusts, temperature inversions and Delta T, rated against university Extension guidance.">
+  <meta name="theme-color" content="#191919">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700;800&display=swap">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-  <link rel="stylesheet" href="css/styles.css?v=20261016b">
+  <link rel="stylesheet" href="css/styles.css?v=20261016d">
 </head>
 <body data-mode="basic">
   <header class="site-header">
     <div class="brand">
-      <h1>Spray Window Forecast</h1>
-      <span class="badge">University of Idaho Extension · Prototype</span>
+      <p class="brand-unit">University of Idaho Extension</p>
+      <h1>Spray Window Forecast <span class="badge">Prototype</span></h1>
     </div>
-    <div class="mode-toggle" role="group" aria-label="View">
-      <button type="button" data-mode="basic" aria-pressed="true">Basic</button>
-      <button type="button" data-mode="advanced" aria-pressed="false">Advanced</button>
+    <div class="header-tools">
+      <button id="text-size" type="button" class="tool-btn" aria-label="Change text size">
+        <span class="aa" aria-hidden="true">A<span>A</span></span><span id="text-size-label">Text: Normal</span>
+      </button>
+      <div class="mode-toggle" role="group" aria-label="Mode">
+        <button type="button" data-mode="basic" aria-pressed="true">Basic</button>
+        <button type="button" data-mode="advanced" aria-pressed="false">Advanced</button>
+      </div>
     </div>
   </header>
 
@@ -177,7 +186,7 @@
   </footer>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-  <script src="js/rules.js?v=20261016b"></script>
-  <script src="js/app.js?v=20261016b"></script>
+  <script src="js/rules.js?v=20261016d"></script>
+  <script src="js/app.js?v=20261016d"></script>
 </body>
 </html>

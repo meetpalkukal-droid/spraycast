@@ -262,6 +262,22 @@
     if (far > 0 && state.lat != null) ul.appendChild(el("li", "muted", `${far} more marked farther than 2 miles away (not counted).`));
   }
 
+  // ---------- Text size (larger type for growers who need it) ----------
+  const TEXT_SIZES = [["Normal", "100%"], ["Large", "118%"], ["Largest", "136%"]];
+  let textSize = 0;
+  try { textSize = Math.min(TEXT_SIZES.length - 1, Math.max(0, +localStorage.getItem("spray:text") || 0)); } catch (_) {}
+  function applyTextSize() {
+    document.documentElement.style.fontSize = TEXT_SIZES[textSize][1];
+    $("text-size-label").textContent = `Text: ${TEXT_SIZES[textSize][0]}`;
+    map.invalidateSize();
+  }
+  $("text-size").addEventListener("click", () => {
+    textSize = (textSize + 1) % TEXT_SIZES.length;
+    try { localStorage.setItem("spray:text", String(textSize)); } catch (_) {}
+    applyTextSize();
+  });
+  applyTextSize();
+
   // ---------- View mode ----------
   function applyMode() {
     document.body.dataset.mode = state.mode;
