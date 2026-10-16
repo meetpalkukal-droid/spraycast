@@ -12,8 +12,8 @@
     general: {
       label: "General guidance (most products)",
       calmNo: 2,         // below this, effectively calm: drift + inversion risk [1][3]
-      windMin: 3,        // 3–7 mph preferred [3]
-      windIdeal: 7,
+      windMin: 3,        // 3–10 mph at boom height: the label range [4]; WSU uses 4–10 mph [12]
+      windIdeal: 10,
       windMax: 10,       // avoid spraying above 10 mph [3]
       labelTiming: false,
       sensitiveNo: false, // wind toward a sensitive site: Caution
@@ -48,9 +48,10 @@
   // Sites the grower marked. Labels say "adjacent"/"neighboring" with no distance [11].
   const SENSITIVE = { radiusMi: 2, sectorDeg: 45 };   // PROTOTYPE
 
-  const GUST = { caution: 12, no: 15, spread: 8 };   // mph at 10 m, PROTOTYPE
-  const INVERSION = { no: 0, caution: -0.3 };        // T(80 m) − T(2 m) in °C [1][5]
-  const DELTA_T = { low: 2, high: 8, no: 10 };       // °C [6]; shown as 3.6 / 14.4 / 18 °F
+  // Gusts only ever raise Caution: guidance warns about gusty wind but gives no number, and WSU ignores gusts [12].
+  const GUST = { caution: 15, spread: 10 };          // mph at 33 ft, PROTOTYPE
+  const INVERSION = { no: 0 };                       // T(80 m) − T(2 m) in °C: warmer aloft = inversion [1][5][12]
+  const DELTA_T = { low: 2, high: 8, no: 10 };       // °C [6][12]; shown as 3.6 / 14.4 / 18 °F
   const RAIN = { no: 0.02, popCaution: 50 };         // inches per hour, % chance; PROTOTYPE
 
   // Wet-bulb temperature from air temperature (°C) and RH (%), Stull 2011 [7].
@@ -84,9 +85,8 @@
 
     if (isNum(h.gust)) {
       const g = Math.round(h.gust);
-      if (h.gust >= GUST.no) add("gust", LEVEL.NO, "Gusty", `Gusts up to ${g} mph.`);
-      else if (h.gust >= GUST.caution || (isNum(h.wind10) && h.gust - h.wind10 >= GUST.spread))
-        add("gust", LEVEL.CAUTION, "Gusty", `Gusts up to ${g} mph, which makes wind unsteady.`);
+      if (h.gust >= GUST.caution || (isNum(h.wind10) && h.gust - h.wind10 >= GUST.spread))
+        add("gust", LEVEL.CAUTION, "Gusty", `Gusts up to ${g} mph make the wind unsteady.`);
       else add("gust", LEVEL.GOOD, "Gusts OK", `Gusts up to ${g} mph.`);
     }
 
@@ -103,7 +103,6 @@
       const d = h.t80 - h.t2;
       const dTxt = `${d >= 0 ? "+" : ""}${fmt1(dF(d))} °F`;
       if (d > INVERSION.no) add("inversion", LEVEL.NO, "Inversion", `Inversion: air at 260 ft is warmer than at 6 ft (${dTxt}). Fine droplets can stay trapped and move off-target.`);
-      else if (d > INVERSION.caution) add("inversion", LEVEL.CAUTION, "Stable air", `Little cooling with height (${dTxt} from 6 to 260 ft). The air is stable, so an inversion may be forming.`);
       else add("inversion", LEVEL.GOOD, "No inversion", `Normal cooling with height (${dTxt} from 6 to 260 ft).`);
     } else if (isNum(h.wind10) && isNum(h.cloud)) {
       // No upper-air temperature returned: fall back to the calm + clear + dawn/dusk proxy [1].
@@ -115,9 +114,9 @@
     if (isNum(h.t2) && isNum(h.rh)) {
       const dt = h.t2 - wetBulb(h.t2, Math.min(Math.max(h.rh, 5), 99));
       const dtTxt = `Delta T ${fmt1(dF(dt))} °F`;
-      if (dt > DELTA_T.no) add("deltat-high", LEVEL.NO, "Too hot/dry", `${dtTxt}. Droplets evaporate fast and fines can drift far.`);
-      else if (dt > DELTA_T.high) add("deltat-high", LEVEL.CAUTION, "Hot/dry", `${dtTxt} is above 14.4 °F. Evaporation is high, so use coarser droplets.`);
-      else if (dt < DELTA_T.low) add("deltat-low", LEVEL.CAUTION, "Humid", `${dtTxt} is below 3.6 °F. Fine droplets last longer, so watch for inversions.`);
+      if (dt > DELTA_T.no) add("deltat-high", LEVEL.NO, "Too hot/dry", `${dtTxt} is above 18 °F. Droplets evaporate before reaching the target, so control suffers and fine droplets drift.`);
+      else if (dt > DELTA_T.high) add("deltat-high", LEVEL.CAUTION, "Hot/dry", `${dtTxt} is above 14.4 °F. Hot and dry: use coarser droplets and a higher water volume.`);
+      else if (dt < DELTA_T.low) add("deltat-low", LEVEL.CAUTION, "Humid", `${dtTxt} is below 3.6 °F. Fine droplets linger, so avoid fine sprays and watch for inversions.`);
       else add("deltat", LEVEL.GOOD, "Delta T OK", `${dtTxt} is within the 3.6–14.4 °F range.`);
     }
 
@@ -136,5 +135,16 @@
     return { level, primary: level > 0 ? factors[0] : null, factors };
   }
 
-  global.SprayRules = { LEVEL, LEVEL_NAME, PROFILES, DEFAULT_SETUP, SENSITIVE, scoreHour, wetBulb, windAtHeight, boomFactor, boomWind };
+  // What to do about each Caution factor, shown with "OK with care" windows.
+  const ADVICE = {
+    "deltat-high": "use coarser droplets and more water",
+    "deltat-low": "avoid fine droplets and watch for inversions",
+    calm: "light wind: use coarse droplets and watch for inversions",
+    gust: "gusty: use coarse droplets and keep the boom low",
+    rain: "rain possible: check the label's rainfast period",
+    sensitive: "wind toward a sensitive site: keep a downwind buffer",
+    inversion: "check for an inversion before spraying",
+  };
+
+  global.SprayRules = { LEVEL, LEVEL_NAME, PROFILES, DEFAULT_SETUP, SENSITIVE, ADVICE, scoreHour, wetBulb, windAtHeight, boomFactor, boomWind };
 })(window);

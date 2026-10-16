@@ -65,8 +65,8 @@ a { color: var(--accent); }
 [hidden] { display: none !important; }
 
 /* View modes */
-body[data-mode="simple"] .detailed-only { display: none !important; }
-body[data-mode="detailed"] .simple-only { display: none !important; }
+body[data-mode="basic"] .advanced-only { display: none !important; }
+body[data-mode="advanced"] .basic-only { display: none !important; }
 
 /* Status colors: each level sets --c (mark), --soft (tint) and --on (text on the mark). */
 .lvl-0 { --c: var(--good); --soft: var(--good-soft); --on: var(--on-good); }
@@ -158,6 +158,7 @@ button {
 .hero-kicker { margin: 0; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
 .hero-main { margin: 2px 0 2px; font-size: clamp(1.4rem, 4vw, 2.1rem); font-weight: 700; line-height: 1.2; }
 .hero-sub { margin: 0; color: var(--muted); }
+.hero-advice { margin: 6px 0 0; font-weight: 600; }
 .also { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 12px 0 0; font-size: 0.9rem; color: var(--muted); }
 .chip {
   font-size: 0.85rem; font-weight: 600; padding: 4px 11px; border-radius: 999px;
@@ -197,7 +198,7 @@ button {
   .mini { grid-column: 1 / -1; }
 }
 
-/* Simple day panel */
+/* Basic day panel */
 .day-panel { margin-top: 12px; }
 .day-panel h3 { margin: 0; font-size: 1.1rem; }
 .day-panel-head { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; justify-content: space-between; }
@@ -212,7 +213,7 @@ button {
 .day-lines .muted { font-size: 0.9rem; }
 .sun { margin: 12px 0 0; font-size: 0.85rem; color: var(--muted); }
 
-/* Setup (detailed) */
+/* Setup (advanced) */
 .setup { margin-top: 16px; }
 .setup-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .setup h2 { margin: 0 0 10px; font-size: 1.05rem; }
@@ -224,7 +225,7 @@ button {
 .input-unit em { font-style: normal; font-weight: 400; color: var(--muted); }
 .setup-readout { margin: 12px 0 0; font-size: 0.88rem; color: var(--muted); }
 
-/* Detailed day list */
+/* Advanced day list */
 .forecast-meta { margin: 20px 0 8px; font-size: 0.85rem; color: var(--muted); }
 .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 0.85rem; color: var(--muted); margin-bottom: 8px; }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
@@ -240,6 +241,7 @@ button {
 
 .summary p { margin: 4px 0; }
 .sum-good strong { color: var(--good); }
+.sum-care strong { color: var(--text); }
 .sum-none { font-weight: 600; color: var(--no); }
 .sum-limits { font-size: 0.9rem; color: var(--muted); }
 .tag {

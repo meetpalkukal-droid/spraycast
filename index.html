@@ -6,17 +6,17 @@
   <title>Spray Window Forecast</title>
   <meta name="description" content="7-day, field-specific spray condition forecast: wind at boom height, gusts, temperature inversions and Delta T, rated against university Extension guidance.">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-  <link rel="stylesheet" href="css/styles.css?v=20261016">
+  <link rel="stylesheet" href="css/styles.css?v=20261016b">
 </head>
-<body data-mode="simple">
+<body data-mode="basic">
   <header class="site-header">
     <div class="brand">
       <h1>Spray Window Forecast</h1>
       <span class="badge">University of Idaho Extension · Prototype</span>
     </div>
     <div class="mode-toggle" role="group" aria-label="View">
-      <button type="button" data-mode="simple" aria-pressed="true">Simple</button>
-      <button type="button" data-mode="detailed" aria-pressed="false">Detailed</button>
+      <button type="button" data-mode="basic" aria-pressed="true">Basic</button>
+      <button type="button" data-mode="advanced" aria-pressed="false">Advanced</button>
     </div>
   </header>
 
@@ -69,7 +69,7 @@
     <div id="hero" class="hero"></div>
     <p id="setup-note" class="setup-note"></p>
 
-    <section class="panel setup detailed-only" aria-labelledby="setup-title">
+    <section class="panel setup advanced-only" aria-labelledby="setup-title">
       <div class="setup-head">
         <h2 id="setup-title">Your setup</h2>
         <button id="reset-setup" type="button" class="link-btn">Reset to defaults</button>
@@ -116,9 +116,9 @@
       <div id="week" class="week"></div>
     </section>
 
-    <section id="day-panel" class="panel day-panel simple-only" aria-live="polite"></section>
+    <section id="day-panel" class="panel day-panel basic-only" aria-live="polite"></section>
 
-    <section class="detailed-only">
+    <section class="advanced-only">
       <p id="forecast-meta" class="forecast-meta"></p>
       <div class="legend">
         <span><i class="sw lvl-0"></i>Good</span>
@@ -136,19 +136,20 @@
     <table>
       <thead><tr><th>Factor</th><th>Good</th><th>Caution</th><th>Do not spray</th><th>Source</th></tr></thead>
       <tbody>
-        <tr><td>Wind at boom height, converted from the 33 ft forecast</td><td>3–7 mph</td><td>2–3 or 7–10 mph</td><td>&lt; 2 or &gt; 10 mph</td><td>[1] [3] [10]</td></tr>
-        <tr><td>Gusts (33 ft)</td><td>&lt; 12 mph</td><td>12–15 mph, or 8+ mph above the average wind</td><td>&ge; 15 mph</td><td>Prototype</td></tr>
-        <tr><td>Inversion: temp. at 260 ft vs. 6 ft</td><td>Cooler aloft</td><td>Nearly the same (within 0.5 °F)</td><td>Warmer aloft</td><td>[1] [5]</td></tr>
-        <tr><td>Delta T (dry bulb − wet bulb)</td><td>3.6–14.4 °F</td><td>&lt; 3.6 or 14.4–18 °F</td><td>&gt; 18 °F</td><td>[6] [7]</td></tr>
+        <tr><td>Wind at boom height, converted from the 33 ft forecast</td><td>3–10 mph</td><td>2–3 mph</td><td>&lt; 2 or &gt; 10 mph</td><td>[1] [3] [4] [10]</td></tr>
+        <tr><td>Gusts (33 ft)</td><td>&lt; 15 mph</td><td>&ge; 15 mph, or 10+ mph above the average wind</td><td>— (never on its own)</td><td>Prototype</td></tr>
+        <tr><td>Inversion: temp. at 260 ft vs. 6 ft</td><td>Not warmer aloft</td><td>—</td><td>Warmer aloft</td><td>[1] [5] [12]</td></tr>
+        <tr><td>Delta T (dry bulb − wet bulb)</td><td>3.6–14.4 °F</td><td>&lt; 3.6 or 14.4–18 °F</td><td>&gt; 18 °F</td><td>[6] [7] [12]</td></tr>
         <tr><td>Rain</td><td>—</td><td>&ge; 50% chance</td><td>&ge; 0.02 in/hour forecast</td><td>Prototype</td></tr>
         <tr><td>Wind toward a sensitive site you marked (within 2 mi, ±45°)</td><td>Blowing away</td><td>Toward it (general)</td><td>Toward it (restricted labels)</td><td>[4] [11]; distance and angle Prototype</td></tr>
         <tr><td>Time of day</td><td>Daylight</td><td>Night (general)</td><td>Outside 1 h after sunrise to 2 h before sunset (restricted labels)</td><td>[4]</td></tr>
       </tbody>
     </table>
     <p class="muted">Restricted-label rules allow winds of 3–10 mph and treat anything outside that range, or outside the label time window, as Do not spray. Thresholds marked "Prototype" are placeholders awaiting review by Extension specialists.</p>
+    <p class="muted">The inversion, Delta T and wind checks follow WSU AgWeatherNet's Spray Guidance [12]. When a day has no fully Good window, the tool shows the best "OK with care" window, which has no Do-not-spray hours, along with what to adjust. WSU describes these marginal hours as "spraying is possible but may require adjustments to minimize risk."</p>
 
     <h2>Wind at boom height</h2>
-    <p>Labels set wind limits at boom height [4], but forecasts give wind at 33 ft. The tool scales the 33 ft wind down with the FAO-56 logarithmic wind profile over short grass (Eq. 47) [10], using the boom's height above the ground. Because labels measure boom height above the crop, that is the crop height plus the boom height above the crop. FAO-56 states the equation in metric units, so heights are converted for the calculation only. The default is a 24 in boom (the label maximum above the target) over a 39.4 in crop, so the boom is about 5.3 ft above the ground, which gives about 71% of the 33 ft speed. Set your own boom and crop height in the Detailed view.</p>
+    <p>Labels set wind limits at boom height [4], but forecasts give wind at 33 ft. The tool scales the 33 ft wind down with the FAO-56 logarithmic wind profile over short grass (Eq. 47) [10], using the boom's height above the ground. Because labels measure boom height above the crop, that is the crop height plus the boom height above the crop. FAO-56 states the equation in metric units, so heights are converted for the calculation only. The default is a 24 in boom (the label maximum above the target) over a 39.4 in crop, so the boom is about 5.3 ft above the ground, which gives about 71% of the 33 ft speed. Set your own boom and crop height in Advanced mode.</p>
     <p class="muted">The profile assumes neutral air. In calm, stable air near dawn and dusk, wind at the boom can be lower than shown. <strong>Measure wind at boom height in the field before spraying.</strong></p>
 
     <h2>Forecast data</h2>
@@ -167,6 +168,7 @@
       <li>NOAA Global Systems Laboratory, High-Resolution Rapid Refresh (HRRR).</li>
       <li>Allen, R.G., Pereira, L.S., Raes, D., Smith, M. (1998). <em>Crop Evapotranspiration: Guidelines for Computing Crop Water Requirements.</em> FAO Irrigation and Drainage Paper 56, Chapter 3, Eq. 47. Rome: FAO.</li>
       <li>University of Illinois farmdoc, "Adjacent and neighboring: how far is that?" Dicamba labels prohibit application when the wind blows toward neighboring sensitive crops, and define no distance.</li>
+      <li>Amogi, B., Patel, J., Hill, S., Khot, L. (2025). <em>AgWeatherNet Spray Guide: Tool to Optimize Pesticide Applications in Washington.</em> WSU Tree Fruit; also Amogi et al. (2025), ECPA proceedings, Barcelona.</li>
     </ol>
   </details>
 
@@ -175,7 +177,7 @@
   </footer>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-  <script src="js/rules.js?v=20261016"></script>
-  <script src="js/app.js?v=20261016"></script>
+  <script src="js/rules.js?v=20261016b"></script>
+  <script src="js/app.js?v=20261016b"></script>
 </body>
 </html>

@@ -25,7 +25,7 @@
   const $ = (id) => document.getElementById(id);
   const state = {
     lat: null, lon: null, data: null, marker: null, selectedDay: null,
-    mode: "simple", setup: { ...DEFAULTS },
+    mode: "basic", overrides: {},
     fields: loadList("spray:fields"), sites: loadList("spray:sites"), addingSite: false,
   };
 
@@ -38,17 +38,23 @@
   }
 
   // ---------- Saved preferences (per browser; optional) ----------
+  // Only inputs the user changed are stored, so a later change to a default reaches everyone else.
   try {
-    const saved = JSON.parse(localStorage.getItem("spray:prefs") || "null");
+    localStorage.removeItem("spray:prefs"); // older format stored every input, freezing old defaults
+    const saved = JSON.parse(localStorage.getItem("spray:prefs2") || "null");
     if (saved) {
-      if (saved.mode === "detailed") state.mode = "detailed";
-      state.setup = sanitize({ ...DEFAULTS, ...saved.setup });
+      if (saved.mode === "advanced") state.mode = "advanced";
+      if (saved.overrides && typeof saved.overrides === "object") state.overrides = saved.overrides;
     }
   } catch (_) { /* storage unavailable */ }
 
   function savePrefs() {
-    try { localStorage.setItem("spray:prefs", JSON.stringify({ mode: state.mode, setup: state.setup })); } catch (_) {}
+    try { localStorage.setItem("spray:prefs2", JSON.stringify({ mode: state.mode, overrides: state.overrides })); } catch (_) {}
   }
+
+  // Basic mode always rates with the defaults. Advanced starts from them and applies the user's changes.
+  const advancedSetup = () => sanitize({ ...DEFAULTS, ...state.overrides });
+  const activeSetup = () => (state.mode === "advanced" ? advancedSetup() : { ...DEFAULTS });
 
   function sanitize(s) {
     const out = { ...s };
@@ -271,20 +277,23 @@
     }));
   applyMode();
 
-  // ---------- Setup inputs (detailed view) ----------
+  // ---------- Setup inputs (advanced mode) ----------
   const inputs = { profile: $("profile-select"), boomIn: $("boom-input"), cropIn: $("crop-input"), minHours: $("minhours-input") };
   function fillInputs() {
-    Object.keys(inputs).forEach((k) => { inputs[k].value = state.setup[k]; });
+    const s = advancedSetup();
+    Object.keys(inputs).forEach((k) => { inputs[k].value = s[k]; });
   }
   Object.keys(inputs).forEach((k) =>
     inputs[k].addEventListener("change", () => {
-      state.setup = sanitize({ ...state.setup, [k]: inputs[k].value });
+      const v = sanitize({ ...advancedSetup(), [k]: inputs[k].value })[k];
+      if (v === DEFAULTS[k]) delete state.overrides[k];
+      else state.overrides[k] = v;
       fillInputs();
       savePrefs();
       render();
     }));
   $("reset-setup").addEventListener("click", () => {
-    state.setup = { ...DEFAULTS };
+    state.overrides = {};
     fillInputs();
     savePrefs();
     render();
@@ -496,6 +505,9 @@
     days.forEach((day) => {
       day.windows = runs(day.hours, (h) => !h.past && h.score.level === R.LEVEL.GOOD)
         .filter((w) => w.hours.length >= setup.minHours);
+      day.care = day.windows.length ? [] :
+        runs(day.hours, (h) => !h.past && isDaylight(day, h) && h.score.level <= R.LEVEL.CAUTION)
+          .filter((w) => w.hours.length >= setup.minHours);
       day.limits = runsByKey(day.hours.filter((h) => !h.past && isDaylight(day, h) && h.score.level > 0));
       day.summary = summarize(day, setup);
     });
@@ -522,7 +534,10 @@
     hours.forEach((h) => {
       const last = out[out.length - 1];
       const p = h.score.primary;
-      if (last && last.key === p.key && last.end === h.hour) { last.end = h.hour + 1; last.level = Math.max(last.level, h.score.level); }
+      if (last && last.key === p.key && last.end === h.hour) {
+        last.end = h.hour + 1;
+        if (h.score.level > last.level) { last.level = h.score.level; last.short = p.short; } // name the worse one
+      }
       else out.push({ key: p.key, short: p.short, level: h.score.level, start: h.hour, end: h.hour + 1 });
     });
     return out;
@@ -543,6 +558,11 @@
       const best = longest(day.windows);
       const more = day.windows.length > 1 ? ` (+${day.windows.length - 1} more)` : "";
       return { level: R.LEVEL.GOOD, label: "Good window", text: `${span(best.start, best.end)}${more}`, best };
+    }
+    if (day.care.length) {
+      const best = longest(day.care);
+      const more = day.care.length > 1 ? ` (+${day.care.length - 1} more)` : "";
+      return { level: R.LEVEL.CAUTION, label: "OK with care", text: `${span(best.start, best.end)}${more}`, best };
     }
     if (live.some((h) => h.score.level === R.LEVEL.GOOD))
       return { level: R.LEVEL.CAUTION, label: "Short windows", text: `Good spells shorter than ${setup.minHours} h` };
@@ -621,7 +641,7 @@
   function selectDay(i) {
     state.selectedDay = i;
     render();
-    const target = state.mode === "simple" ? $("day-panel") : $(`day-${i}`);
+    const target = state.mode === "basic" ? $("day-panel") : $(`day-${i}`);
     if (target) target.scrollIntoView({ block: "nearest" });
   }
 
@@ -629,7 +649,7 @@
   function render() {
     if (!state.data) return;
     const d = state.data;
-    const setup = state.setup;
+    const setup = activeSetup();
     const sites = nearbySites();
     const days = buildDays(d, setup, sites);
 
@@ -642,15 +662,15 @@
     const next = findNext(days);
     renderAnswer(next);
     renderHero(days, next);
-    $("setup-note").textContent = state.mode === "simple"
-      ? `Rated for ${setupText(setup)}, using ${setup.profile === "restricted" ? "restricted-label" : "general"} rules${sites.length ? `, watching ${sites.length} sensitive site${sites.length > 1 ? "s" : ""} nearby` : ""}. Change this in the Detailed view.`
+    $("setup-note").textContent = state.mode === "basic"
+      ? `Rated for ${setupText(setup)}, using general rules${sites.length ? `, watching ${sites.length} sensitive site${sites.length > 1 ? "s" : ""} nearby` : ""}. Switch to Advanced mode to change these.`
       : "";
-    $("setup-note").hidden = state.mode !== "simple";
+    $("setup-note").hidden = state.mode !== "basic";
     $("setup-readout").textContent =
       `Wind at your boom ≈ ${Math.round(R.boomFactor(setup) * 100)}% of the 33 ft forecast (FAO-56 Eq. 47), with the boom ${((setup.cropIn + setup.boomIn) / 12).toFixed(1)} ft above the ground.`;
 
     renderWeek(days);
-    if (state.mode === "simple") {
+    if (state.mode === "basic") {
       renderDayPanel(days[state.selectedDay] || days[0]);
     } else {
       const hasT80 = (d.hourly.temperature_80m || []).some((x) => x != null);
@@ -663,42 +683,62 @@
     $("results").hidden = false;
   }
 
-  // The window happening now, or the next one coming up.
+  // The good window happening now or coming up next; failing that, the next "OK with care" window.
   function findNext(days) {
     for (const day of days) {
-      for (const w of day.windows) return { day, w, now: w.hours[0].now };
+      for (const w of day.windows) return { day, w, now: w.hours[0].now, care: false };
+    }
+    for (const day of days) {
+      for (const w of day.care) return { day, w, now: w.hours[0].now, care: true };
     }
     return null;
   }
+  const nextLevel = (next) => (!next ? R.LEVEL.NO : next.care ? R.LEVEL.CAUTION : R.LEVEL.GOOD);
+
+  // Up to two fixes for the Caution factors in a window.
+  function careAdvice(w) {
+    const keys = [];
+    w.hours.forEach((h) => h.score.factors.forEach((f) => {
+      if (f.level === R.LEVEL.CAUTION && R.ADVICE[f.key] && !keys.includes(f.key)) keys.push(f.key);
+    }));
+    return keys.slice(0, 2).map((k) => R.ADVICE[k]).join("; ");
+  }
 
   function nextText(next) {
-    if (!next) return "No good spray window in the next 7 days";
-    if (next.now) return `Good to spray now, until ${hourLabel(next.w.end)}`;
+    if (!next) return "No spray window in the next 7 days";
+    const verb = next.care ? "OK to spray with care" : "Good to spray";
+    if (next.now) return `${verb} now, until ${hourLabel(next.w.end)}`;
     return `${dayName(next.day.date, next.day.index)}, ${span(next.w.start, next.w.end)}`;
   }
 
   function renderAnswer(next) {
     const ic = $("answer-icon");
-    const level = next ? R.LEVEL.GOOD : R.LEVEL.NO;
+    const level = nextLevel(next);
     ic.className = `badge-icon lvl-${level}`;
     ic.innerHTML = ICONS[level];
     ic.hidden = false;
     const t = $("answer-text");
     t.classList.remove("error");
-    t.textContent = next && !next.now ? `Next good window: ${nextText(next)}` : nextText(next);
+    t.textContent = next && !next.now ? `${next.care ? "Best option, with care" : "Next good window"}: ${nextText(next)}` : nextText(next);
     $("answer-link").hidden = false;
   }
 
   function renderHero(days, next) {
     const box = $("hero");
     box.replaceChildren();
-    const level = next ? R.LEVEL.GOOD : R.LEVEL.NO;
+    const level = nextLevel(next);
     box.className = `hero lvl-${level}`;
     box.appendChild(icon(level));
     const body = el("div");
-    body.appendChild(el("p", "hero-kicker", next ? (next.now ? "Right now" : "Next good spray window") : "This week"));
+    const kicker = !next ? "This week" : next.now ? "Right now"
+      : next.care ? "No fully good window · best option, with care" : "Next good spray window";
+    body.appendChild(el("p", "hero-kicker", kicker));
     body.appendChild(el("p", "hero-main", nextText(next)));
-    if (next) {
+    if (next && next.care) {
+      body.appendChild(el("p", "hero-sub", `${next.w.hours.length} h · ${windowWind(next.w)}`));
+      const advice = careAdvice(next.w);
+      if (advice) body.appendChild(el("p", "hero-advice", `To spray safely: ${advice}.`));
+    } else if (next) {
       body.appendChild(el("p", "hero-sub", `${next.w.hours.length} h · ${windowWind(next.w)}`));
       const rest = days.flatMap((day) => day.windows.map((w) => ({ day, w }))).filter((x) => x.w !== next.w).slice(0, 4);
       if (rest.length) {
@@ -716,7 +756,7 @@
       const live = days.flatMap((day) => day.hours.filter((h) => !h.past && isDaylight(day, h) && h.score.primary));
       const reason = live.length ? mostCommon(live.map((h) => h.score.primary.short)) : null;
       body.appendChild(el("p", "hero-sub", (reason ? `Mostly limited by: ${reason}. ` : "") +
-        "Amber (caution) hours may still work with extra care."));
+        "Check again tomorrow: forecasts update every hour."));
     }
     box.appendChild(body);
   }
@@ -753,7 +793,7 @@
     });
   }
 
-  // Simple view: one day, daylight hours only, in plain sentences.
+  // Basic mode: one day, daylight hours only, in plain sentences.
   function renderDayPanel(day) {
     const box = $("day-panel");
     box.replaceChildren();
@@ -780,7 +820,8 @@
 
     const lines = [
       ...day.windows.map((w) => ({ start: w.start, level: R.LEVEL.GOOD, main: `Good to spray ${span(w.start, w.end)}`, sub: windowWind(w) })),
-      ...day.limits.filter((r) => r.level === R.LEVEL.NO || r.end - r.start >= 2)
+      ...day.care.map((w) => ({ start: w.start, level: R.LEVEL.CAUTION, main: `OK with care ${span(w.start, w.end)}`, sub: careAdvice(w) })),
+      ...day.limits.filter((r) => r.level === R.LEVEL.NO || (!day.care.length && r.end - r.start >= 2))
         .map((r) => ({ start: r.start, level: r.level, main: `${r.short} ${span(r.start, r.end)}`, sub: "" })),
     ].sort((a, b) => a.start - b.start);
 
@@ -795,10 +836,10 @@
       ul.appendChild(li);
     });
     box.appendChild(ul);
-    box.appendChild(el("p", "sun", `Sunrise ${timeLabel(day.sunrise)} · Sunset ${timeLabel(day.sunset)} · Switch to Detailed for every hour and the reasons behind it.`));
+    box.appendChild(el("p", "sun", `Sunrise ${timeLabel(day.sunrise)} · Sunset ${timeLabel(day.sunset)} · Switch to Advanced mode for every hour and the reasons behind it.`));
   }
 
-  // Detailed view: all 24 hours, tap an hour for its factors.
+  // Advanced mode: all 24 hours, tap an hour for its factors.
   function renderDay(day) {
     const card = el("article", "day");
     card.id = `day-${day.index}`;
@@ -838,7 +879,7 @@
     const axis = el("div", "axis");
     [0, 6, 12, 18].forEach((hr) => axis.appendChild(el("span", null, hourLabel(hr))));
     card.appendChild(axis);
-    card.appendChild(el("p", "strip-note", `The number in each hour is wind speed in mph at boom height, for ${setupText(state.setup)}. Tap an hour to see why it got that rating.`));
+    card.appendChild(el("p", "strip-note", `The number in each hour is wind speed in mph at boom height, for ${setupText(activeSetup())}. Tap an hour to see why it got that rating.`));
     card.appendChild(detail);
     return card;
   }
@@ -856,8 +897,16 @@
         p.appendChild(document.createTextNode(` (${windowWind(w)})`));
         box.appendChild(p);
       });
+    } else if (day.care.length) {
+      day.care.forEach((w) => {
+        const p = el("p", "sum-care");
+        p.appendChild(el("strong", null, `OK with care: ${span(w.start, w.end)}`));
+        const advice = careAdvice(w);
+        if (advice) p.appendChild(document.createTextNode(` (${advice})`));
+        box.appendChild(p);
+      });
     } else {
-      box.appendChild(el("p", "sum-none", "No good window."));
+      box.appendChild(el("p", "sum-none", "No window."));
     }
     const notable = day.limits.filter((r) => r.level === R.LEVEL.NO || r.end - r.start >= 2);
     if (notable.length) {
