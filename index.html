@@ -59,8 +59,8 @@
     <table>
       <thead><tr><th>Factor</th><th>Good</th><th>Caution</th><th>Do not spray</th><th>Source</th></tr></thead>
       <tbody>
-        <tr><td>Wind (10 m)</td><td>3–7 mph</td><td>2–3 or 7–10 mph</td><td>&lt; 2 or &gt; 10 mph</td><td>[1] [3]</td></tr>
-        <tr><td>Gusts</td><td>&lt; 12 mph</td><td>12–15 mph, or 8+ mph above the average wind</td><td>&ge; 15 mph</td><td>Prototype</td></tr>
+        <tr><td>Wind at boom height (24 in), converted from the 10 m forecast</td><td>3–7 mph</td><td>2–3 or 7–10 mph</td><td>&lt; 2 or &gt; 10 mph</td><td>[1] [3]</td></tr>
+        <tr><td>Gusts (10 m)</td><td>&lt; 12 mph</td><td>12–15 mph, or 8+ mph above the average wind</td><td>&ge; 15 mph</td><td>Prototype</td></tr>
         <tr><td>Inversion: temp. at 80 m (260 ft) vs. 2 m (6 ft)</td><td>Cooler aloft</td><td>Nearly the same (within 0.5 °F)</td><td>Warmer aloft</td><td>[1] [5]</td></tr>
         <tr><td>Delta T (dry bulb − wet bulb)</td><td>2–8 °C</td><td>&lt; 2 or 8–10 °C</td><td>&gt; 10 °C</td><td>[6] [7]</td></tr>
         <tr><td>Rain</td><td>—</td><td>&ge; 50% chance</td><td>&ge; 0.02 in/hour forecast</td><td>Prototype</td></tr>
@@ -68,6 +68,7 @@
       </tbody>
     </table>
     <p class="muted">Restricted-label rules allow winds of 3–10 mph and treat anything outside that range, or outside the label time window, as Do not spray. Thresholds marked "Prototype" are placeholders awaiting review by Extension specialists.</p>
+    <p class="muted">Labels set wind limits at boom height [4], but forecasts give wind at 10 m (33 ft). The tool scales the 10 m wind to 24 in, the label maximum boom height, with the FAO-56 logarithmic wind profile (Eq. 47) [10]. That gives about 55% of the 10 m speed. The profile assumes a short grass surface and neutral air, so wind at the boom can be lower than shown in calm, stable air near dawn and dusk. <strong>Measure wind at boom height in the field before spraying.</strong></p>
 
     <h2>Forecast data</h2>
     <p>Hourly forecasts come from <a href="https://open-meteo.com/en/docs/gfs-api" target="_blank" rel="noopener">Open-Meteo</a> [8]. For about the first 48 hours they use NOAA's 3 km <a href="https://rapidrefresh.noaa.gov/hrrr/" target="_blank" rel="noopener">HRRR</a> model [9], and NOAA's GFS after that. Each pin uses the forecast for the model grid cell that contains it, with no interpolation. Forecasts refresh hourly, and later days are less certain.</p>
@@ -77,12 +78,13 @@
       <li>Enz, J., Hofman, V., Thostenson, A. <em>Air Temperature Inversions: Causes, Characteristics and Potential Effects on Pesticide Spray Drift.</em> NDSU Extension AE1705.</li>
       <li>Iowa State University Extension and Outreach, guidance on spray drift and temperature inversions.</li>
       <li>University of Minnesota Extension, pesticide drift guidance (preferred wind 3–7 mph; avoid spraying above 10 mph).</li>
-      <li>U.S. EPA-approved labels for over-the-top dicamba products (wind 3–10 mph; application from 1 h after sunrise to 2 h before sunset), as summarized by Iowa State University Extension. <strong>Always follow the current label for your product.</strong></li>
+      <li>U.S. EPA-approved labels for over-the-top dicamba products (wind 3–10 mph measured at boom height; boom no more than 24 in above the target or crop canopy; application from 1 h after sunrise to 2 h before sunset), as summarized by Iowa State University Extension. <strong>Always follow the current label for your product.</strong></li>
       <li>Washington State University AgWeatherNet Spray Advisory: Do Not Spray when the air at 30 ft is warmer than at 6 ft.</li>
       <li>Grains Research and Development Corporation (GRDC), Delta T guidance for spraying (2–8 °C preferred, above 10 °C avoid).</li>
       <li>Stull, R. (2011). Wet-Bulb Temperature from Relative Humidity and Air Temperature. <em>J. Appl. Meteor. Climatol.</em> 50, 2267–2269.</li>
       <li>Open-Meteo.com Weather API (CC BY 4.0).</li>
       <li>NOAA Global Systems Laboratory, High-Resolution Rapid Refresh (HRRR).</li>
+      <li>Allen, R.G., Pereira, L.S., Raes, D., Smith, M. (1998). <em>Crop Evapotranspiration: Guidelines for Computing Crop Water Requirements.</em> FAO Irrigation and Drainage Paper 56, Chapter 3, Eq. 47. Rome: FAO.</li>
     </ol>
   </section>
 

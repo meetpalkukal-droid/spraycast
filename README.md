@@ -22,6 +22,8 @@ Then open http://localhost:8000. You can also double-click `index.html`, but a l
 
 **Data:** a single Open-Meteo request per location (`models=gfs_seamless`). It uses HRRR (3 km) for about the first 48 h and GFS after that. Each pin gets its own grid cell, so there is no interpolation to do. Hourly variables: 10 m wind speed, gusts and direction; 2 m and 80 m temperature; RH; cloud cover; precipitation and its probability. Daily variables: sunrise and sunset.
 
+**Wind at boom height:** labels set wind limits at boom height, but the forecast is for 10 m. The tool scales it with the FAO-56 log wind profile over short grass (Allen et al. 1998, Eq. 47), u(z) = u10 · ln(67.8z − 5.42) / ln(67.8·10 − 5.42), with z = 0.61 m (24 in, the dicamba-label maximum boom height above target or canopy). The factor is about 0.55. All wind thresholds use the converted value. Gusts, the gust-spread check and the no-80 m inversion proxy still use 10 m values.
+
 **Inversions:** if the 80 m temperature is higher than the 2 m temperature, the hour is rated Do not spray. A difference within 0.3 °C rates Caution. If the model returns no 80 m data, the tool falls back to a calm + clear + near dawn/dusk proxy (NDSU AE1705).
 
 **Delta T:** calculated from 2 m temperature and RH with Stull's (2011) wet-bulb formula.
@@ -35,6 +37,7 @@ Then open http://localhost:8000. You can also double-click `index.html`, but a l
 - [ ] **Email Open-Meteo** to confirm that a free University of Idaho Extension tool counts as non-commercial use.
 - [ ] **Specialist review of thresholds.** The gust and rain thresholds (marked *Prototype* in the app) need a citation or sign-off. Also confirm that the inversion cut-offs at 80 m are reasonable, since WSU uses 30 ft vs 6 ft from station towers.
 - [ ] **Verify citations and add direct links.** The sources list gives titles but no deep links yet. Confirm each one, especially the Minnesota and Iowa State pages and the GRDC Delta T fact sheet.
+- [ ] **Review the boom-height wind conversion.** It treats 24 in as height above ground, so it ignores canopy height, and it assumes a grass surface and neutral stability. Check whether the gust thresholds should also apply at boom height.
 - [ ] **Check the current dicamba label status** before shipping the "Restricted label" profile.
 - [ ] **Read the WSU/PNW forecast-based spray advisory paper** and align the logic where it makes sense.
 - [ ] **Check the competition in Idaho:** Bayer Spray App and WSU AgWeatherNet coverage.

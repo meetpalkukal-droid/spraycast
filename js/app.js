@@ -133,7 +133,7 @@
       if (!day) return;
       const h = {
         time: t, minutes: minutesOf(t), hour: +t.slice(11, 13),
-        wind: col("wind_speed_10m", i), gust: col("wind_gusts_10m", i), dir: col("wind_direction_10m", i),
+        wind10: col("wind_speed_10m", i), wind: R.boomWind(col("wind_speed_10m", i)), gust: col("wind_gusts_10m", i), dir: col("wind_direction_10m", i),
         t2: col("temperature_2m", i), t80: col("temperature_80m", i), rh: col("relative_humidity_2m", i),
         cloud: col("cloud_cover", i), precip: col("precipitation", i), pop: col("precipitation_probability", i),
       };
@@ -200,7 +200,7 @@
     const mode = dirs.sort((a, b) => dirs.filter((x) => x === b).length - dirs.filter((x) => x === a).length)[0];
     if (!speeds.length) return "";
     const lo = Math.round(Math.min(...speeds)), hi = Math.round(Math.max(...speeds));
-    return `winds ${mode} ${lo === hi ? lo : lo + "–" + hi} mph`;
+    return `winds ${mode} ${lo === hi ? lo : lo + "–" + hi} mph at boom`;
   }
 
   function confidence(i) {
@@ -302,7 +302,7 @@
     const axis = el("div", "axis");
     [0, 6, 12, 18].forEach((hr) => axis.appendChild(el("span", null, hourLabel(hr))));
     card.appendChild(axis);
-    card.appendChild(el("p", "strip-note", "The number in each hour is wind speed in mph. Tap an hour to see why it got that rating."));
+    card.appendChild(el("p", "strip-note", "The number in each hour is wind speed in mph at boom height (24 in), converted from the 10 m forecast. Tap an hour to see why it got that rating."));
     card.appendChild(detail);
     return card;
   }
@@ -353,8 +353,8 @@
     box.appendChild(ul);
 
     const facts = [
-      h.wind != null && `Wind ${Math.round(h.wind)} mph from ${compass(h.dir)}`,
-      h.gust != null && `Gusts ${Math.round(h.gust)} mph`,
+      h.wind != null && `Wind ${Math.round(h.wind)} mph at boom height (${Math.round(h.wind10)} mph at 10 m) from ${compass(h.dir)}`,
+      h.gust != null && `Gusts ${Math.round(h.gust)} mph at 10 m`,
       h.t2 != null && `Temperature ${toF(h.t2)} °F`,
       h.rh != null && `Humidity ${Math.round(h.rh)}%`,
       h.cloud != null && `Cloud cover ${Math.round(h.cloud)}%`,
