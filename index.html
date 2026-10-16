@@ -26,7 +26,11 @@
     <div class="map-card">
       <form id="search-form" class="search">
         <label for="search-input" class="sr-only">Address, town, or coordinates</label>
-        <input id="search-input" type="search" placeholder="Address, town, or 46.73, -117.00" autocomplete="off">
+        <div class="search-box">
+          <input id="search-input" type="search" placeholder="Address, town, or 46.73, -117.00" autocomplete="off"
+            role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="suggest">
+          <ul id="suggest" class="suggest" role="listbox" aria-label="Matching places" hidden></ul>
+        </div>
         <button type="submit">Find</button>
       </form>
       <div id="fields" class="fields" hidden></div>
@@ -167,7 +171,7 @@
   </details>
 
   <footer class="site-footer">
-    <p><strong>This tool is advisory only. The pesticide label is the law.</strong> Check conditions in the field before and during every application. Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a>; geocoding © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>.</p>
+    <p><strong>This tool is advisory only. The pesticide label is the law.</strong> Check conditions in the field before and during every application. Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a>; place search by <a href="https://photon.komoot.io/" target="_blank" rel="noopener">Photon</a> (komoot), data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>.</p>
   </footer>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>

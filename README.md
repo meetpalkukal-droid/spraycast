@@ -16,7 +16,7 @@ Then open http://localhost:8000. You can also double-click `index.html`, but a l
 
 | Piece | What it does |
 |---|---|
-| `js/app.js` | Map (Leaflet + Esri tiles), address search (OpenStreetMap Nominatim), the forecast call, day and window grouping, rendering |
+| `js/app.js` | Map (Leaflet + Esri tiles), live address search (Photon by komoot, OpenStreetMap data; Nominatim forbids search-as-you-type), the forecast call, day and window grouping, rendering |
 | `js/rules.js` | Pure scoring rules: one hour of forecast in, a level plus the reasons out. Every threshold lives here and is cited. |
 | `index.html` | Layout, rating table and sources |
 

@@ -3,7 +3,8 @@
 
   const R = window.SprayRules;
   const API = "https://api.open-meteo.com/v1/forecast";
-  const GEOCODER = "https://nominatim.openstreetmap.org/search";
+  // Photon (komoot, OpenStreetMap data) supports search-as-you-type; Nominatim's policy forbids it.
+  const GEOCODER = "https://photon.komoot.io/api/";
   const HOURLY = [
     "temperature_2m", "temperature_80m", "relative_humidity_2m",
     "wind_speed_10m", "wind_gusts_10m", "wind_direction_10m",
@@ -290,22 +291,111 @@
   });
   fillInputs();
 
-  // ---------- Search ----------
+  // ---------- Search (live suggestions) ----------
+  const COORDS_RE = /^\s*(-?\d+(?:\.\d+)?)\s*[, ]\s*(-?\d+(?:\.\d+)?)\s*$/;
+  const search = { items: [], active: -1, timer: null, ctrl: null, seq: 0 };
+  const sInput = $("search-input"), sList = $("suggest");
+
+  // Photon feature → { main, sub, lat, lon }
+  function placeLabel(f) {
+    const p = f.properties;
+    const street = [p.housenumber, p.street].filter(Boolean).join(" ");
+    const main = p.name || street || p.city || p.county || "";
+    const sub = [p.name && street, p.city !== main && p.city, p.county !== main && p.county, p.state]
+      .filter(Boolean).filter((x, i, a) => a.indexOf(x) === i).join(", ");
+    return { main, sub, lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] };
+  }
+
+  async function geocode(q, limit) {
+    if (search.ctrl) search.ctrl.abort();
+    search.ctrl = new AbortController();
+    const c = map.getCenter();
+    const url = `${GEOCODER}?q=${encodeURIComponent(q)}&limit=${limit}&lang=en&lat=${c.lat.toFixed(3)}&lon=${c.lng.toFixed(3)}`;
+    const res = await fetch(url, { signal: search.ctrl.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const seen = new Set();
+    return data.features
+      .filter((f) => f.properties.countrycode === "US")
+      .map(placeLabel)
+      .filter((x) => x.main && !seen.has(x.main + x.sub) && seen.add(x.main + x.sub));
+  }
+
+  function showSuggestions(items) {
+    search.items = items;
+    search.active = -1;
+    sList.replaceChildren();
+    items.forEach((x, i) => {
+      const li = el("li", "suggest-item");
+      li.id = `suggest-${i}`;
+      li.setAttribute("role", "option");
+      li.appendChild(el("span", "suggest-main", x.main));
+      if (x.sub) li.appendChild(el("span", "suggest-sub", x.sub));
+      // mousedown fires before the input loses focus
+      li.addEventListener("mousedown", (e) => { e.preventDefault(); pickSuggestion(i); });
+      sList.appendChild(li);
+    });
+    sList.hidden = !items.length;
+    sInput.setAttribute("aria-expanded", String(!!items.length));
+    sInput.removeAttribute("aria-activedescendant");
+  }
+  const hideSuggestions = () => showSuggestions([]);
+
+  function highlight(i) {
+    const n = search.items.length;
+    if (!n) return;
+    search.active = (i + n) % n;
+    sList.querySelectorAll(".suggest-item").forEach((li, k) => li.classList.toggle("active", k === search.active));
+    sInput.setAttribute("aria-activedescendant", `suggest-${search.active}`);
+  }
+
+  function pickSuggestion(i) {
+    const x = search.items[i];
+    if (!x) return;
+    sInput.value = x.sub ? `${x.main}, ${x.sub}` : x.main;
+    hideSuggestions();
+    setLocation(x.lat, x.lon, x.main, true);
+  }
+
+  sInput.addEventListener("input", () => {
+    clearTimeout(search.timer);
+    const q = sInput.value.trim();
+    if (q.length < 3 || COORDS_RE.test(q)) return hideSuggestions();
+    const seq = ++search.seq;
+    search.timer = setTimeout(async () => {
+      try {
+        const items = await geocode(q, 10);
+        if (seq === search.seq) showSuggestions(items.slice(0, 6));
+      } catch (err) {
+        if (err.name !== "AbortError") hideSuggestions();
+      }
+    }, 250);
+  });
+
+  sInput.addEventListener("keydown", (e) => {
+    if (sList.hidden) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); highlight(search.active + 1); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); highlight(search.active - 1); }
+    else if (e.key === "Escape") hideSuggestions();
+  });
+  sInput.addEventListener("blur", () => setTimeout(hideSuggestions, 100));
+
   $("search-form").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const q = $("search-input").value.trim();
+    const q = sInput.value.trim();
     if (!q) return;
-    const coords = q.match(/^\s*(-?\d+(?:\.\d+)?)\s*[, ]\s*(-?\d+(?:\.\d+)?)\s*$/);
-    if (coords) return setLocation(+coords[1], +coords[2], null, true);
+    const coords = q.match(COORDS_RE);
+    if (coords) { hideSuggestions(); return setLocation(+coords[1], +coords[2], null, true); }
+    if (search.items.length) return pickSuggestion(Math.max(search.active, 0));
+    clearTimeout(search.timer);
+    search.seq++;
     setStatus("Searching…");
     try {
-      const url = `${GEOCODER}?format=json&limit=1&countrycodes=us&q=${encodeURIComponent(q)}`;
-      const res = await fetch(url, { headers: { Accept: "application/json" } });
-      const hits = await res.json();
+      const hits = await geocode(q, 5);
       if (!hits.length) return setStatus(`No match for “${q}”. Try a town name, or tap the map.`, true);
-      setLocation(+hits[0].lat, +hits[0].lon, hits[0].display_name, true);
+      setLocation(hits[0].lat, hits[0].lon, hits[0].main, true);
     } catch (err) {
-      setStatus("Address search is unavailable right now. Tap the map instead.", true);
+      if (err.name !== "AbortError") setStatus("Address search is unavailable right now. Tap the map instead.", true);
     }
   });
 
