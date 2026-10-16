@@ -4,46 +4,94 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Spray Window Forecast</title>
-  <meta name="description" content="7-day, field-specific spray condition forecast: wind, gusts, temperature inversions and Delta T, rated against university Extension guidance.">
+  <meta name="description" content="7-day, field-specific spray condition forecast: wind at boom height, gusts, temperature inversions and Delta T, rated against university Extension guidance.">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
   <link rel="stylesheet" href="css/styles.css">
 </head>
-<body>
+<body data-mode="simple">
   <header class="site-header">
-    <div>
+    <div class="brand">
       <h1>Spray Window Forecast</h1>
-      <p class="tagline">Drop a pin on your field to see the week ahead, rated hour by hour for wind, gusts, inversions and Delta T.</p>
+      <span class="badge">University of Idaho Extension · Prototype</span>
     </div>
-    <span class="badge">University of Idaho Extension · Prototype</span>
+    <div class="mode-toggle" role="group" aria-label="View">
+      <button type="button" data-mode="simple" aria-pressed="true">Simple</button>
+      <button type="button" data-mode="detailed" aria-pressed="false">Detailed</button>
+    </div>
   </header>
 
-  <main class="layout">
-    <section class="panel controls" aria-label="Choose a location">
+  <section class="map-wrap" aria-label="Choose your field">
+    <div id="map" role="application" aria-label="Map. Click to drop a pin on your field."></div>
+
+    <div class="map-card">
       <form id="search-form" class="search">
         <label for="search-input" class="sr-only">Address, town, or coordinates</label>
         <input id="search-input" type="search" placeholder="Address, town, or 46.73, -117.00" autocomplete="off">
         <button type="submit">Find</button>
       </form>
-      <div class="row">
-        <button id="locate-btn" type="button" class="secondary">Use my location</button>
-        <label class="select">
+      <div class="map-card-row">
+        <button id="locate-btn" type="button" class="link-btn">Use my location</button>
+        <span class="hint">or tap the map on your field</span>
+      </div>
+      <p id="location-info" class="location-info" hidden></p>
+    </div>
+
+    <div id="answer" class="answer" aria-live="polite">
+      <span id="answer-icon" class="badge-icon" hidden></span>
+      <div class="answer-body">
+        <p id="answer-text" class="answer-text">Find your field to see when it's safe to spray this week.</p>
+        <a id="answer-link" class="answer-link" href="#results" hidden>See the week ↓</a>
+      </div>
+    </div>
+  </section>
+
+  <main id="results" class="results" hidden>
+    <div id="hero" class="hero"></div>
+    <p id="setup-note" class="setup-note"></p>
+
+    <section class="panel setup detailed-only" aria-labelledby="setup-title">
+      <div class="setup-head">
+        <h2 id="setup-title">Your setup</h2>
+        <button id="reset-setup" type="button" class="link-btn">Reset to defaults</button>
+      </div>
+      <div class="setup-grid">
+        <label class="field">
+          <span>Boom height above the crop</span>
+          <span class="input-unit"><input id="boom-input" type="number" min="6" max="72" step="1" inputmode="numeric"><em>in</em></span>
+          <small>Label maximum is usually 24 in.</small>
+        </label>
+        <label class="field">
+          <span>Crop height</span>
+          <span class="input-unit"><input id="crop-input" type="number" min="0" max="120" step="1" inputmode="numeric"><em>in</em></span>
+          <small>0 for bare ground or stubble.</small>
+        </label>
+        <label class="field">
+          <span>Shortest useful window</span>
+          <span class="input-unit"><input id="minhours-input" type="number" min="1" max="8" step="1" inputmode="numeric"><em>h</em></span>
+          <small>How long the job takes.</small>
+        </label>
+        <label class="field">
           <span>Rules</span>
           <select id="profile-select">
             <option value="general">General guidance</option>
             <option value="restricted">Restricted label (dicamba-style)</option>
           </select>
+          <small>Restricted adds label hours and a hard 3 mph minimum.</small>
         </label>
       </div>
-      <div id="map" role="application" aria-label="Map. Click to drop a pin on your field."></div>
-      <p class="hint">Or click the map to drop a pin on your field.</p>
-      <p id="location-info" class="location-info"></p>
+      <p id="setup-readout" class="setup-readout"></p>
     </section>
 
-    <section class="panel results" aria-live="polite">
-      <div id="status" class="status">Drop a pin or search for a place to see the next 7 days.</div>
-      <p id="forecast-meta" class="forecast-meta" hidden></p>
-      <div id="best" class="best" hidden></div>
-      <div id="legend" class="legend" hidden>
+    <section aria-labelledby="week-title">
+      <h2 id="week-title" class="section-title">This week</h2>
+      <div id="week" class="week"></div>
+    </section>
+
+    <section id="day-panel" class="panel day-panel simple-only" aria-live="polite"></section>
+
+    <section class="detailed-only">
+      <p id="forecast-meta" class="forecast-meta"></p>
+      <div class="legend">
         <span><i class="sw lvl-0"></i>Good</span>
         <span><i class="sw lvl-1"></i>Caution</span>
         <span><i class="sw lvl-2"></i>Do not spray</span>
@@ -53,13 +101,13 @@
     </section>
   </main>
 
-  <section class="panel sources" id="sources">
-    <h2>How hours are rated</h2>
+  <details class="panel sources" id="sources">
+    <summary>How hours are rated, and sources</summary>
     <p>Each hour is checked against every factor below. The worst result sets the hour's color, and the hour's detail always names the factor responsible.</p>
     <table>
       <thead><tr><th>Factor</th><th>Good</th><th>Caution</th><th>Do not spray</th><th>Source</th></tr></thead>
       <tbody>
-        <tr><td>Wind at boom height (24 in), converted from the 10 m forecast</td><td>3–7 mph</td><td>2–3 or 7–10 mph</td><td>&lt; 2 or &gt; 10 mph</td><td>[1] [3]</td></tr>
+        <tr><td>Wind at boom height, converted from the 10 m forecast</td><td>3–7 mph</td><td>2–3 or 7–10 mph</td><td>&lt; 2 or &gt; 10 mph</td><td>[1] [3] [10]</td></tr>
         <tr><td>Gusts (10 m)</td><td>&lt; 12 mph</td><td>12–15 mph, or 8+ mph above the average wind</td><td>&ge; 15 mph</td><td>Prototype</td></tr>
         <tr><td>Inversion: temp. at 80 m (260 ft) vs. 2 m (6 ft)</td><td>Cooler aloft</td><td>Nearly the same (within 0.5 °F)</td><td>Warmer aloft</td><td>[1] [5]</td></tr>
         <tr><td>Delta T (dry bulb − wet bulb)</td><td>2–8 °C</td><td>&lt; 2 or 8–10 °C</td><td>&gt; 10 °C</td><td>[6] [7]</td></tr>
@@ -68,7 +116,10 @@
       </tbody>
     </table>
     <p class="muted">Restricted-label rules allow winds of 3–10 mph and treat anything outside that range, or outside the label time window, as Do not spray. Thresholds marked "Prototype" are placeholders awaiting review by Extension specialists.</p>
-    <p class="muted">Labels set wind limits at boom height [4], but forecasts give wind at 10 m (33 ft). The tool scales the 10 m wind to 24 in, the label maximum boom height, with the FAO-56 logarithmic wind profile (Eq. 47) [10]. That gives about 55% of the 10 m speed. The profile assumes a short grass surface and neutral air, so wind at the boom can be lower than shown in calm, stable air near dawn and dusk. <strong>Measure wind at boom height in the field before spraying.</strong></p>
+
+    <h2>Wind at boom height</h2>
+    <p>Labels set wind limits at boom height [4], but forecasts give wind at 10 m (33 ft). The tool scales the 10 m wind down with the FAO-56 logarithmic wind profile [10]: u(z) = u₁₀ · ln((z − d)/z₀ₘ) / ln((10 − d)/z₀ₘ), with zero-plane displacement d = ⅔h and roughness length z₀ₘ = 0.123h for crop height h. Over bare ground or crops shorter than 0.12 m, h is set to the FAO-56 grass reference (0.12 m), which makes this FAO-56 Eq. 47. The default is a 24 in boom (the label maximum above the target) over bare ground, which gives about 55% of the 10 m speed. Set your own boom and crop height in the Detailed view.</p>
+    <p class="muted">The profile assumes neutral air. In calm, stable air near dawn and dusk, wind at the boom can be lower than shown. <strong>Measure wind at boom height in the field before spraying.</strong></p>
 
     <h2>Forecast data</h2>
     <p>Hourly forecasts come from <a href="https://open-meteo.com/en/docs/gfs-api" target="_blank" rel="noopener">Open-Meteo</a> [8]. For about the first 48 hours they use NOAA's 3 km <a href="https://rapidrefresh.noaa.gov/hrrr/" target="_blank" rel="noopener">HRRR</a> model [9], and NOAA's GFS after that. Each pin uses the forecast for the model grid cell that contains it, with no interpolation. Forecasts refresh hourly, and later days are less certain.</p>
@@ -84,9 +135,9 @@
       <li>Stull, R. (2011). Wet-Bulb Temperature from Relative Humidity and Air Temperature. <em>J. Appl. Meteor. Climatol.</em> 50, 2267–2269.</li>
       <li>Open-Meteo.com Weather API (CC BY 4.0).</li>
       <li>NOAA Global Systems Laboratory, High-Resolution Rapid Refresh (HRRR).</li>
-      <li>Allen, R.G., Pereira, L.S., Raes, D., Smith, M. (1998). <em>Crop Evapotranspiration: Guidelines for Computing Crop Water Requirements.</em> FAO Irrigation and Drainage Paper 56, Chapter 3, Eq. 47. Rome: FAO.</li>
+      <li>Allen, R.G., Pereira, L.S., Raes, D., Smith, M. (1998). <em>Crop Evapotranspiration: Guidelines for Computing Crop Water Requirements.</em> FAO Irrigation and Drainage Paper 56, Chapter 2 (Eq. 4) and Chapter 3 (Eq. 47). Rome: FAO.</li>
     </ol>
-  </section>
+  </details>
 
   <footer class="site-footer">
     <p><strong>This tool is advisory only. The pesticide label is the law.</strong> Check conditions in the field before and during every application. Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a>; geocoding © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>.</p>

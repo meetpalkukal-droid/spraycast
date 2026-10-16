@@ -28,11 +28,27 @@
   };
 
   // Wind thresholds apply at boom height, as the labels specify [4]. The forecast is for 10 m,
-  // so it is scaled with the FAO-56 log wind profile over short grass (Eq. 47) [10]:
-  //   u(z) = u10 · ln(67.8 z − 5.42) / ln(67.8 · 10 − 5.42)
-  const BOOM_HEIGHT_M = 0.61;  // 24 in: label maximum boom height above target or canopy [4]
-  const windAtHeight = (u10, z) => u10 * Math.log(67.8 * z - 5.42) / Math.log(67.8 * 10 - 5.42);
-  const boomWind = (u10) => (isNum(u10) ? windAtHeight(u10, BOOM_HEIGHT_M) : null);
+  // so it is scaled with the FAO-56 logarithmic wind profile [10]:
+  //   u(z) = u10 · ln((z − d) / zom) / ln((10 − d) / zom),   d = 2/3 h,  zom = 0.123 h
+  // where h is crop height (FAO-56 Eq. 4). Below the 0.12 m grass reference, h = 0.12 m, which
+  // makes this exactly Eq. 47: u(z) = u10 · ln(67.8 z − 5.42) / ln(67.8 · 10 − 5.42).
+  const GRASS_H = 0.12;
+  const IN_TO_M = 0.0254;
+  // 24 in: label maximum boom height above the target or crop canopy [4]
+  const DEFAULT_SETUP = { boomIn: 24, cropIn: 0 };
+
+  function windAtHeight(u10, z, h) {
+    const hh = Math.max(h || 0, GRASS_H);
+    const d = (2 / 3) * hh, zom = 0.123 * hh;
+    return u10 * Math.log((z - d) / zom) / Math.log((10 - d) / zom);
+  }
+  // Ratio of boom-height wind to 10 m wind. Boom height is measured above the crop canopy.
+  function boomFactor(setup) {
+    const s = setup || DEFAULT_SETUP;
+    const h = s.cropIn * IN_TO_M;
+    return windAtHeight(1, h + s.boomIn * IN_TO_M, h);
+  }
+  const boomWind = (u10, setup) => (isNum(u10) ? u10 * boomFactor(setup) : null);
 
   const GUST = { caution: 12, no: 15, spread: 8 };   // mph at 10 m, PROTOTYPE
   const INVERSION = { no: 0, caution: -0.3 };        // T(80 m) − T(2 m) in °C [1][5]
@@ -112,5 +128,5 @@
     return { level, primary: level > 0 ? factors[0] : null, factors };
   }
 
-  global.SprayRules = { LEVEL, LEVEL_NAME, PROFILES, BOOM_HEIGHT_M, scoreHour, wetBulb, windAtHeight, boomWind };
+  global.SprayRules = { LEVEL, LEVEL_NAME, PROFILES, DEFAULT_SETUP, scoreHour, wetBulb, windAtHeight, boomFactor, boomWind };
 })(window);

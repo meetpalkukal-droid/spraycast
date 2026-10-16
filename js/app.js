@@ -12,11 +12,47 @@
   const CACHE_TTL_MS = 60 * 60 * 1000; // models update hourly
   const COMPASS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
 
+  const DEFAULTS = { profile: "general", boomIn: R.DEFAULT_SETUP.boomIn, cropIn: R.DEFAULT_SETUP.cropIn, minHours: 1 };
+  const LIMITS = { boomIn: [6, 72], cropIn: [0, 120], minHours: [1, 8] };
+
+  const ICONS = [
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v9" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><circle cx="12" cy="19" r="1.8" fill="currentColor"/></svg>',
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>',
+  ];
+
   const $ = (id) => document.getElementById(id);
-  const state = { lat: null, lon: null, data: null, profile: "general", marker: null };
+  const state = {
+    lat: null, lon: null, data: null, marker: null, selectedDay: null,
+    mode: "simple", setup: { ...DEFAULTS },
+  };
+
+  // ---------- Saved preferences (per browser; optional) ----------
+  try {
+    const saved = JSON.parse(localStorage.getItem("spray:prefs") || "null");
+    if (saved) {
+      if (saved.mode === "detailed") state.mode = "detailed";
+      state.setup = sanitize({ ...DEFAULTS, ...saved.setup });
+    }
+  } catch (_) { /* storage unavailable */ }
+
+  function savePrefs() {
+    try { localStorage.setItem("spray:prefs", JSON.stringify({ mode: state.mode, setup: state.setup })); } catch (_) {}
+  }
+
+  function sanitize(s) {
+    const out = { ...s };
+    if (!R.PROFILES[out.profile]) out.profile = DEFAULTS.profile;
+    Object.keys(LIMITS).forEach((k) => {
+      const [lo, hi] = LIMITS[k];
+      const v = Math.round(Number(out[k]));
+      out[k] = Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : DEFAULTS[k];
+    });
+    return out;
+  }
 
   // ---------- Map ----------
-  const map = L.map("map").setView([44.3, -115.5], 6);
+  const map = L.map("map", { zoomControl: false }).setView([44.3, -115.5], 6);
   const esri = "https://server.arcgisonline.com/ArcGIS/rest/services/";
   const satellite = L.layerGroup([
     L.tileLayer(esri + "World_Imagery/MapServer/tile/{z}/{y}/{x}", {
@@ -28,21 +64,46 @@
     maxZoom: 19, attribution: "© Esri",
   });
   satellite.addTo(map);
-  L.control.layers({ Satellite: satellite, Streets: streets }).addTo(map);
+  L.control.zoom({ position: "bottomright" }).addTo(map);
+  L.control.layers({ Satellite: satellite, Streets: streets }, null, { position: "bottomright" }).addTo(map);
   map.on("click", (e) => setLocation(e.latlng.lat, e.latlng.lng, null, false));
 
-  // ---------- Inputs ----------
-  try {
-    const saved = localStorage.getItem("spray:profile");
-    if (saved && R.PROFILES[saved]) state.profile = saved;
-  } catch (_) { /* storage unavailable */ }
-  $("profile-select").value = state.profile;
-  $("profile-select").addEventListener("change", (e) => {
-    state.profile = e.target.value;
-    try { localStorage.setItem("spray:profile", state.profile); } catch (_) {}
+  // ---------- View mode ----------
+  function applyMode() {
+    document.body.dataset.mode = state.mode;
+    document.querySelectorAll(".mode-toggle button").forEach((b) =>
+      b.setAttribute("aria-pressed", String(b.dataset.mode === state.mode)));
+  }
+  document.querySelectorAll(".mode-toggle button").forEach((b) =>
+    b.addEventListener("click", () => {
+      state.mode = b.dataset.mode;
+      applyMode();
+      savePrefs();
+      render();
+    }));
+  applyMode();
+
+  // ---------- Setup inputs (detailed view) ----------
+  const inputs = { profile: $("profile-select"), boomIn: $("boom-input"), cropIn: $("crop-input"), minHours: $("minhours-input") };
+  function fillInputs() {
+    Object.keys(inputs).forEach((k) => { inputs[k].value = state.setup[k]; });
+  }
+  Object.keys(inputs).forEach((k) =>
+    inputs[k].addEventListener("change", () => {
+      state.setup = sanitize({ ...state.setup, [k]: inputs[k].value });
+      fillInputs();
+      savePrefs();
+      render();
+    }));
+  $("reset-setup").addEventListener("click", () => {
+    state.setup = { ...DEFAULTS };
+    fillInputs();
+    savePrefs();
     render();
   });
+  fillInputs();
 
+  // ---------- Search ----------
   $("search-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const q = $("search-input").value.trim();
@@ -54,10 +115,10 @@
       const url = `${GEOCODER}?format=json&limit=1&countrycodes=us&q=${encodeURIComponent(q)}`;
       const res = await fetch(url, { headers: { Accept: "application/json" } });
       const hits = await res.json();
-      if (!hits.length) return setStatus(`No match for “${q}”. Try a town name, or click the map.`, true);
+      if (!hits.length) return setStatus(`No match for “${q}”. Try a town name, or tap the map.`, true);
       setLocation(+hits[0].lat, +hits[0].lon, hits[0].display_name, true);
     } catch (err) {
-      setStatus("Address search is unavailable right now. Click the map instead.", true);
+      setStatus("Address search is unavailable right now. Tap the map instead.", true);
     }
   });
 
@@ -66,18 +127,21 @@
     setStatus("Finding your location…");
     navigator.geolocation.getCurrentPosition(
       (pos) => setLocation(pos.coords.latitude, pos.coords.longitude, "Your location", true),
-      () => setStatus("Location access was blocked. Search or click the map instead.", true),
+      () => setStatus("Location access was blocked. Search or tap the map instead.", true),
       { enableHighAccuracy: true, timeout: 10000 }
     );
   });
 
   // ---------- Data ----------
   async function setLocation(lat, lon, label, zoom) {
-    state.lat = lat; state.lon = lon;
+    state.lat = lat; state.lon = lon; state.selectedDay = null;
     if (state.marker) state.marker.setLatLng([lat, lon]);
     else state.marker = L.marker([lat, lon]).addTo(map);
-    if (zoom) map.setView([lat, lon], Math.max(map.getZoom(), 12));
-    $("location-info").textContent = `${label ? label + " · " : ""}${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+    if (zoom) map.setView([lat, lon], Math.max(map.getZoom(), 13));
+    try { history.replaceState(null, "", `?lat=${lat.toFixed(4)}&lon=${lon.toFixed(4)}`); } catch (_) {}
+    const info = $("location-info");
+    info.textContent = `${label ? label + " · " : ""}${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+    info.hidden = false;
 
     setStatus("Loading the 7-day forecast…");
     try {
@@ -111,10 +175,16 @@
     return data;
   }
 
+  // A shared or bookmarked link (?lat=..&lon=..) opens straight to that field.
+  const qs = new URLSearchParams(location.search);
+  const qLat = parseFloat(qs.get("lat")), qLon = parseFloat(qs.get("lon"));
+  if (Math.abs(qLat) <= 90 && Math.abs(qLon) <= 180) setLocation(qLat, qLon, null, true);
+
   // ---------- Analysis ----------
   const minutesOf = (iso) => +iso.slice(11, 13) * 60 + +iso.slice(14, 16);
+  const isDaylight = (day, h) => h.minutes + 60 > day.sunrise && h.minutes < day.sunset;
 
-  function buildDays(d, profile) {
+  function buildDays(d, setup) {
     const H = d.hourly;
     const col = (name, i) => (H[name] ? H[name][i] : null);
     const nowIso = d.current && d.current.time ? d.current.time : null;
@@ -131,21 +201,24 @@
     H.time.forEach((t, i) => {
       const day = byDate.get(t.slice(0, 10));
       if (!day) return;
+      const wind10 = col("wind_speed_10m", i);
       const h = {
         time: t, minutes: minutesOf(t), hour: +t.slice(11, 13),
-        wind10: col("wind_speed_10m", i), wind: R.boomWind(col("wind_speed_10m", i)), gust: col("wind_gusts_10m", i), dir: col("wind_direction_10m", i),
+        wind10, wind: R.boomWind(wind10, setup), gust: col("wind_gusts_10m", i), dir: col("wind_direction_10m", i),
         t2: col("temperature_2m", i), t80: col("temperature_80m", i), rh: col("relative_humidity_2m", i),
         cloud: col("cloud_cover", i), precip: col("precipitation", i), pop: col("precipitation_probability", i),
       };
       h.past = nowHour !== null && t.slice(0, 13) < nowHour;
-      h.score = R.scoreHour(h, { profile, sunrise: day.sunrise, sunset: day.sunset });
+      h.now = nowHour !== null && t.slice(0, 13) === nowHour;
+      h.score = R.scoreHour(h, { profile: setup.profile, sunrise: day.sunrise, sunset: day.sunset });
       day.hours.push(h);
     });
 
     days.forEach((day) => {
-      day.windows = runs(day.hours, (h) => !h.past && h.score.level === R.LEVEL.GOOD);
-      const daylight = (h) => h.minutes + 60 > day.sunrise && h.minutes < day.sunset;
-      day.limits = runsByKey(day.hours.filter((h) => !h.past && daylight(h) && h.score.level > 0));
+      day.windows = runs(day.hours, (h) => !h.past && h.score.level === R.LEVEL.GOOD)
+        .filter((w) => w.hours.length >= setup.minHours);
+      day.limits = runsByKey(day.hours.filter((h) => !h.past && isDaylight(day, h) && h.score.level > 0));
+      day.summary = summarize(day, setup);
     });
     return days;
   }
@@ -176,6 +249,33 @@
     return out;
   }
 
+  const mostCommon = (xs) => {
+    const n = new Map();
+    xs.forEach((x) => n.set(x, (n.get(x) || 0) + 1));
+    return [...n.entries()].sort((a, b) => b[1] - a[1])[0][0];
+  };
+  const longest = (ws) => ws.reduce((a, b) => (b.hours.length > a.hours.length ? b : a));
+
+  // One headline per day: level, a short status word and one line of text.
+  function summarize(day, setup) {
+    const live = day.hours.filter((h) => !h.past && isDaylight(day, h));
+    if (!live.length) return { level: null, label: "Over", text: "This day is over." };
+    if (day.windows.length) {
+      const best = longest(day.windows);
+      const more = day.windows.length > 1 ? ` (+${day.windows.length - 1} more)` : "";
+      return { level: R.LEVEL.GOOD, label: "Good window", text: `${span(best.start, best.end)}${more}`, best };
+    }
+    if (live.some((h) => h.score.level === R.LEVEL.GOOD))
+      return { level: R.LEVEL.CAUTION, label: "Short windows", text: `Good spells shorter than ${setup.minHours} h` };
+    const caution = live.filter((h) => h.score.level === R.LEVEL.CAUTION);
+    const pool = caution.length ? caution : live;
+    return {
+      level: caution.length ? R.LEVEL.CAUTION : R.LEVEL.NO,
+      label: caution.length ? "Caution only" : "No window",
+      text: mostCommon(pool.map((h) => h.score.primary.short)),
+    };
+  }
+
   // ---------- Formatting ----------
   const hourLabel = (h) => {
     h = ((h % 24) + 24) % 24;
@@ -183,14 +283,18 @@
     if (h === 12) return "Noon";
     return h < 12 ? `${h} AM` : `${h - 12} PM`;
   };
+  const timeLabel = (min) => {
+    const h = Math.floor(min / 60), m = String(min % 60).padStart(2, "0");
+    return `${h % 12 || 12}:${m} ${h < 12 ? "AM" : "PM"}`;
+  };
   const span = (a, b) => `${hourLabel(a)}–${hourLabel(b)}`;
   const compass = (deg) => (deg == null ? "" : COMPASS[Math.round(deg / 22.5) % 16]);
   const dayName = (date, i) => {
     if (i === 0) return "Today";
     if (i === 1) return "Tomorrow";
-    const d = new Date(date + "T12:00:00");
-    return d.toLocaleDateString(undefined, { weekday: "long" });
+    return new Date(date + "T12:00:00").toLocaleDateString(undefined, { weekday: "long" });
   };
+  const dayShort = (date, i) => (i === 0 ? "Today" : new Date(date + "T12:00:00").toLocaleDateString(undefined, { weekday: "short" }));
   const dateShort = (date) => new Date(date + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" });
   const toF = (c) => Math.round(c * 9 / 5 + 32);
 
@@ -209,63 +313,215 @@
     return { text: "GFS · for tentative planning", cls: "conf-low" };
   }
 
-  // ---------- Rendering ----------
-  function setStatus(msg, isError) {
-    const el = $("status");
-    el.textContent = msg;
-    el.classList.toggle("error", !!isError);
-    el.hidden = !msg;
+  function setupText(s) {
+    const over = s.cropIn > 0 ? `a ${s.cropIn} in crop` : "bare ground or a short crop";
+    return `a ${s.boomIn} in boom over ${over}`;
   }
 
+  // ---------- Rendering helpers ----------
   function el(tag, cls, text) {
     const n = document.createElement(tag);
     if (cls) n.className = cls;
     if (text != null) n.textContent = text;
     return n;
   }
+  function icon(level, cls) {
+    const s = el("span", `badge-icon lvl-${level}${cls ? " " + cls : ""}`);
+    s.innerHTML = ICONS[level]; // static markup from ICONS above
+    return s;
+  }
 
+  function setStatus(msg, isError) {
+    $("answer-icon").hidden = true;
+    $("answer-link").hidden = true;
+    const t = $("answer-text");
+    t.textContent = msg;
+    t.classList.toggle("error", !!isError);
+  }
+
+  function selectDay(i) {
+    state.selectedDay = i;
+    render();
+    const target = state.mode === "simple" ? $("day-panel") : $(`day-${i}`);
+    if (target) target.scrollIntoView({ block: "nearest" });
+  }
+
+  // ---------- Render ----------
   function render() {
     if (!state.data) return;
     const d = state.data;
-    const days = buildDays(d, state.profile);
-    const hasT80 = (d.hourly.temperature_80m || []).some((x) => x != null);
+    const setup = state.setup;
+    const days = buildDays(d, setup);
 
-    setStatus("");
-    const meta = $("forecast-meta");
-    meta.hidden = false;
-    meta.textContent = `Model grid cell at ${Math.round(d.elevation * 3.281)} ft elevation · times in ${d.timezone_abbreviation || d.timezone}` +
-      (hasT80 ? "" : " · Upper-air temperatures are missing, so inversions are estimated from calm, clear conditions.");
-
-    renderBest(days);
-    $("legend").hidden = false;
-
-    const wrap = $("days");
-    wrap.replaceChildren();
-    days.forEach((day) => wrap.appendChild(renderDay(day)));
-  }
-
-  function renderBest(days) {
-    const box = $("best");
-    box.replaceChildren();
-    box.hidden = false;
-    const all = days.flatMap((day) => day.windows.map((w) => ({ day, w })));
-    box.appendChild(el("h2", null, all.length ? "Next spray windows" : "No good spray windows this week"));
-    if (!all.length) {
-      box.appendChild(el("p", "muted", "No hour meets every condition. The day-by-day view below shows what's limiting each day, and the Caution (amber) hours may still work with extra care."));
-      return;
+    if (state.selectedDay == null) {
+      const firstGood = days.find((day) => day.windows.length);
+      const firstLive = days.find((day) => day.summary.level != null);
+      state.selectedDay = (firstGood || firstLive || days[0]).index;
     }
-    const list = el("ul", "best-list");
-    all.slice(0, 4).forEach(({ day, w }) => {
-      const li = el("li");
-      li.appendChild(el("strong", null, `${dayName(day.date, day.index)} ${span(w.start, w.end)}`));
-      li.appendChild(el("span", "muted", ` · ${w.hours.length} h · ${windowWind(w)}`));
-      list.appendChild(li);
-    });
-    box.appendChild(list);
+
+    const next = findNext(days);
+    renderAnswer(next);
+    renderHero(days, next);
+    $("setup-note").textContent = state.mode === "simple"
+      ? `Rated for ${setupText(setup)}, using ${setup.profile === "restricted" ? "restricted-label" : "general"} rules. Change this in the Detailed view.`
+      : "";
+    $("setup-note").hidden = state.mode !== "simple";
+    $("setup-readout").textContent =
+      `Wind at your boom ≈ ${Math.round(R.boomFactor(setup) * 100)}% of the 10 m forecast (FAO-56 log wind profile).`;
+
+    renderWeek(days);
+    if (state.mode === "simple") {
+      renderDayPanel(days[state.selectedDay] || days[0]);
+    } else {
+      const hasT80 = (d.hourly.temperature_80m || []).some((x) => x != null);
+      $("forecast-meta").textContent = `Model grid cell at ${Math.round(d.elevation * 3.281)} ft elevation · times in ${d.timezone_abbreviation || d.timezone}` +
+        (hasT80 ? "" : " · Upper-air temperatures are missing, so inversions are estimated from calm, clear conditions.");
+      const wrap = $("days");
+      wrap.replaceChildren();
+      days.forEach((day) => wrap.appendChild(renderDay(day)));
+    }
+    $("results").hidden = false;
   }
 
+  // The window happening now, or the next one coming up.
+  function findNext(days) {
+    for (const day of days) {
+      for (const w of day.windows) return { day, w, now: w.hours[0].now };
+    }
+    return null;
+  }
+
+  function nextText(next) {
+    if (!next) return "No good spray window in the next 7 days";
+    if (next.now) return `Good to spray now, until ${hourLabel(next.w.end)}`;
+    return `${dayName(next.day.date, next.day.index)}, ${span(next.w.start, next.w.end)}`;
+  }
+
+  function renderAnswer(next) {
+    const ic = $("answer-icon");
+    const level = next ? R.LEVEL.GOOD : R.LEVEL.NO;
+    ic.className = `badge-icon lvl-${level}`;
+    ic.innerHTML = ICONS[level];
+    ic.hidden = false;
+    const t = $("answer-text");
+    t.classList.remove("error");
+    t.textContent = next && !next.now ? `Next good window: ${nextText(next)}` : nextText(next);
+    $("answer-link").hidden = false;
+  }
+
+  function renderHero(days, next) {
+    const box = $("hero");
+    box.replaceChildren();
+    const level = next ? R.LEVEL.GOOD : R.LEVEL.NO;
+    box.className = `hero lvl-${level}`;
+    box.appendChild(icon(level));
+    const body = el("div");
+    body.appendChild(el("p", "hero-kicker", next ? (next.now ? "Right now" : "Next good spray window") : "This week"));
+    body.appendChild(el("p", "hero-main", nextText(next)));
+    if (next) {
+      body.appendChild(el("p", "hero-sub", `${next.w.hours.length} h · ${windowWind(next.w)}`));
+      const rest = days.flatMap((day) => day.windows.map((w) => ({ day, w }))).filter((x) => x.w !== next.w).slice(0, 4);
+      if (rest.length) {
+        const also = el("p", "also");
+        also.appendChild(el("span", null, "Also good:"));
+        rest.forEach(({ day, w }) => {
+          const b = el("button", "chip", `${dayShort(day.date, day.index)} ${span(w.start, w.end)}`);
+          b.type = "button";
+          b.addEventListener("click", () => selectDay(day.index));
+          also.appendChild(b);
+        });
+        body.appendChild(also);
+      }
+    } else {
+      const live = days.flatMap((day) => day.hours.filter((h) => !h.past && isDaylight(day, h) && h.score.primary));
+      const reason = live.length ? mostCommon(live.map((h) => h.score.primary.short)) : null;
+      body.appendChild(el("p", "hero-sub", (reason ? `Mostly limited by: ${reason}. ` : "") +
+        "Amber (caution) hours may still work with extra care."));
+    }
+    box.appendChild(body);
+  }
+
+  function renderWeek(days) {
+    const wrap = $("week");
+    wrap.replaceChildren();
+    days.forEach((day) => {
+      const s = day.summary;
+      const tile = el("button", `tile${s.level != null ? " lvl-" + s.level : " over"}${day.index === state.selectedDay ? " selected" : ""}`);
+      tile.type = "button";
+      tile.setAttribute("aria-label", `${dayName(day.date, day.index)} ${dateShort(day.date)}: ${s.label}. ${s.text}`);
+
+      const when = el("span", "tile-when");
+      when.appendChild(el("span", "tile-day", dayShort(day.date, day.index)));
+      when.appendChild(el("span", "tile-date", ` ${dateShort(day.date)}`));
+      tile.appendChild(when);
+
+      if (s.level != null) {
+        const st = el("span", "tile-status");
+        st.appendChild(icon(s.level));
+        st.appendChild(el("span", null, s.label));
+        tile.appendChild(st);
+      }
+      tile.appendChild(el("span", "tile-text", s.text));
+
+      const mini = el("span", "mini");
+      day.hours.filter((h) => isDaylight(day, h)).forEach((h) =>
+        mini.appendChild(el("i", h.past ? "past" : `lvl-${h.score.level}`)));
+      tile.appendChild(mini);
+
+      tile.addEventListener("click", () => selectDay(day.index));
+      wrap.appendChild(tile);
+    });
+  }
+
+  // Simple view: one day, daylight hours only, in plain sentences.
+  function renderDayPanel(day) {
+    const box = $("day-panel");
+    box.replaceChildren();
+    const head = el("div", "day-panel-head");
+    const title = el("h3", null, dayName(day.date, day.index));
+    title.appendChild(el("span", "tile-date", ` ${dateShort(day.date)}`));
+    head.appendChild(title);
+    const c = confidence(day.index);
+    head.appendChild(el("span", `conf ${c.cls}`, c.text));
+    box.appendChild(head);
+
+    const hours = day.hours.filter((h) => isDaylight(day, h));
+    const bar = el("div", "daybar");
+    const axis = el("div", "daybar-axis");
+    hours.forEach((h, i) => {
+      const reason = h.score.primary ? ` – ${h.score.primary.short}` : "";
+      const cell = el("span", h.past ? "past" : `lvl-${h.score.level}`);
+      cell.title = `${hourLabel(h.hour)}: ${h.past ? "Past" : R.LEVEL_NAME[h.score.level] + reason}`;
+      bar.appendChild(cell);
+      axis.appendChild(el("span", null, i % 3 === 0 ? hourLabel(h.hour) : ""));
+    });
+    box.appendChild(bar);
+    box.appendChild(axis);
+
+    const lines = [
+      ...day.windows.map((w) => ({ start: w.start, level: R.LEVEL.GOOD, main: `Good to spray ${span(w.start, w.end)}`, sub: windowWind(w) })),
+      ...day.limits.filter((r) => r.level === R.LEVEL.NO || r.end - r.start >= 2)
+        .map((r) => ({ start: r.start, level: r.level, main: `${r.short} ${span(r.start, r.end)}`, sub: "" })),
+    ].sort((a, b) => a.start - b.start);
+
+    const ul = el("ul", "day-lines");
+    if (!lines.length) ul.appendChild(el("li", "muted", day.summary.text));
+    lines.forEach((x) => {
+      const li = el("li");
+      li.appendChild(icon(x.level));
+      const t = el("span", null, x.main);
+      if (x.sub) t.appendChild(el("span", "muted", ` · ${x.sub}`));
+      li.appendChild(t);
+      ul.appendChild(li);
+    });
+    box.appendChild(ul);
+    box.appendChild(el("p", "sun", `Sunrise ${timeLabel(day.sunrise)} · Sunset ${timeLabel(day.sunset)} · Switch to Detailed for every hour and the reasons behind it.`));
+  }
+
+  // Detailed view: all 24 hours, tap an hour for its factors.
   function renderDay(day) {
     const card = el("article", "day");
+    card.id = `day-${day.index}`;
     const head = el("header", "day-head");
     const title = el("h3", null, dayName(day.date, day.index));
     title.appendChild(el("span", "date", ` ${dateShort(day.date)}`));
@@ -302,7 +558,7 @@
     const axis = el("div", "axis");
     [0, 6, 12, 18].forEach((hr) => axis.appendChild(el("span", null, hourLabel(hr))));
     card.appendChild(axis);
-    card.appendChild(el("p", "strip-note", "The number in each hour is wind speed in mph at boom height (24 in), converted from the 10 m forecast. Tap an hour to see why it got that rating."));
+    card.appendChild(el("p", "strip-note", `The number in each hour is wind speed in mph at boom height, for ${setupText(state.setup)}. Tap an hour to see why it got that rating.`));
     card.appendChild(detail);
     return card;
   }
