@@ -1,4 +1,6 @@
-# Spray Window Forecast (prototype)
+# SprayCast (prototype)
+
+Spray-window forecasts for any field in the US.
 
 A University of Idaho Extension prototype. A grower drops a pin or types an address and gets a 7-day forecast for that field, rated hour by hour as **Good / Caution / Do not spray**. Each rating is checked against wind, gusts, temperature inversions, Delta T, rain and label timing, using thresholds from Extension guidance.
 

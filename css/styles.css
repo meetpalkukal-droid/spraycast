@@ -1,4 +1,4 @@
-/* Spray Window Forecast — University of Idaho brand colors (Pride Gold #F1B300, Black #191919,
+/* SprayCast — University of Idaho brand colors (Pride Gold #F1B300, Black #191919,
  * Silver #808080) and typeface (Public Sans). Sized in rem so the text-size control scales everything.
  * Status colors are kept apart from brand gold: Caution is orange, so gold never reads as a warning.
  * Every text/background pair below meets WCAG AA contrast; most meet AAA. */
@@ -101,6 +101,7 @@ input:focus, select:focus { border-color: var(--text); outline: none; box-shadow
 }
 .brand-unit { margin: 0; color: var(--gold); font-size: 0.8rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
 .site-header h1 { margin: 0; font-size: 1.5rem; font-weight: 800; letter-spacing: -0.01em; line-height: 1.2; }
+.brand-tag { margin: 0.1rem 0 0; color: #d6d6d6; font-size: 0.92rem; }
 .badge {
   display: inline-block; vertical-align: middle; margin-left: 0.35rem; font-size: 0.72rem; font-weight: 700;
   padding: 0.1rem 0.5rem; border-radius: 999px; border: 1.5px solid var(--gold); color: var(--gold); letter-spacing: 0.03em;
