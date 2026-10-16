@@ -4,18 +4,18 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SprayCast</title>
-  <meta name="description" content="SprayCast: 7-day spray-window forecast for any US field: wind at boom height, gusts, temperature inversions and Delta T, rated against university Extension guidance.">
+  <meta name="description" content="SprayCast: 7-day spray-window forecast for any US field: wind at boom height, gusts, temperature inversions and Delta T, rated against published university guidance.">
   <meta name="theme-color" content="#191919">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700;800&display=swap">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-  <link rel="stylesheet" href="css/styles.css?v=20261016f">
+  <link rel="stylesheet" href="css/styles.css?v=20261016g">
 </head>
 <body data-mode="basic">
   <header class="site-header">
     <div class="brand">
-      <p class="brand-unit">University of Idaho Extension</p>
+      <p class="brand-unit">University of Idaho</p>
       <h1>SprayCast <span class="badge">Prototype</span></h1>
       <p class="brand-tag">Spray-window forecasts for any field in the US</p>
     </div>
@@ -155,7 +155,7 @@
         <tr><td>Time of day</td><td>Daylight</td><td>Night (general)</td><td>Outside 1 h after sunrise to 2 h before sunset (restricted labels)</td><td>[4]</td></tr>
       </tbody>
     </table>
-    <p class="muted">Restricted-label rules allow winds of 3–10 mph and treat anything outside that range, or outside the label time window, as Do not spray. Thresholds marked "Prototype" are placeholders awaiting review by Extension specialists.</p>
+    <p class="muted">Restricted-label rules allow winds of 3–10 mph and treat anything outside that range, or outside the label time window, as Do not spray. Thresholds marked "Prototype" are placeholders awaiting review by specialists.</p>
     <p class="muted">The inversion, Delta T and wind checks follow WSU AgWeatherNet's Spray Guidance [12]. When a day has no fully Good window, the tool shows the best "OK with care" window, which has no Do-not-spray hours, along with what to adjust. WSU describes these marginal hours as "spraying is possible but may require adjustments to minimize risk."</p>
 
     <h2>Wind at boom height</h2>
@@ -184,10 +184,11 @@
 
   <footer class="site-footer">
     <p><strong>This tool is advisory only. The pesticide label is the law.</strong> Check conditions in the field before and during every application. Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a>; place search by <a href="https://photon.komoot.io/" target="_blank" rel="noopener">Photon</a> (komoot), data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>.</p>
+    <p class="credit">This web application was developed by Dr. Meetpal Kukal at University of Idaho.</p>
   </footer>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-  <script src="js/rules.js?v=20261016f"></script>
-  <script src="js/app.js?v=20261016f"></script>
+  <script src="js/rules.js?v=20261016g"></script>
+  <script src="js/app.js?v=20261016g"></script>
 </body>
 </html>

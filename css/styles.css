@@ -339,6 +339,7 @@ input:focus, select:focus { border-color: var(--text); outline: none; box-shadow
 .site-footer p { max-width: 72rem; margin: 0 auto; }
 .site-footer strong { color: #ffffff; }
 .site-footer a { color: var(--gold); }
+.site-footer .credit { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #3d3d3d; color: #ffffff; font-weight: 600; }
 
 /* Saved fields */
 .fields { display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: center; margin-top: 0.7rem; font-size: 0.95rem; }

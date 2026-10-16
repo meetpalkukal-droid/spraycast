@@ -1,6 +1,6 @@
 /* Spray-condition rules: turn hourly forecast values into Good / Caution / Do not spray.
  * Bracketed numbers refer to the Sources section in index.html and README.md.
- * Thresholds marked PROTOTYPE are placeholders pending review by Extension specialists.
+ * Thresholds marked PROTOTYPE are placeholders pending review by specialists.
  */
 (function (global) {
   "use strict";

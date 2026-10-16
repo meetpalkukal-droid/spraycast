@@ -2,7 +2,7 @@
 
 Spray-window forecasts for any field in the US.
 
-A University of Idaho Extension prototype. A grower drops a pin or types an address and gets a 7-day forecast for that field, rated hour by hour as **Good / Caution / Do not spray**. Each rating is checked against wind, gusts, temperature inversions, Delta T, rain and label timing, using thresholds from Extension guidance.
+A University of Idaho prototype developed by Dr. Meetpal Kukal. A grower drops a pin or types an address and gets a 7-day forecast for that field, rated hour by hour as **Good / Caution / Do not spray**. Each rating is checked against wind, gusts, temperature inversions, Delta T, rain and label timing, using thresholds from published university guidance.
 
 ## Run it
 
@@ -46,7 +46,7 @@ Then open http://localhost:8000. You can also double-click `index.html`, but a l
 
 ## Open items before growers see it
 
-- [ ] **Email Open-Meteo** to confirm that a free University of Idaho Extension tool counts as non-commercial use.
+- [ ] **Email Open-Meteo** to confirm that a free University of Idaho tool counts as non-commercial use.
 - [ ] **Specialist review of thresholds.** The gust and rain thresholds (marked *Prototype* in the app) need a citation or sign-off. Also check model Delta T against Idaho stations: it is the main limit in southern Idaho summers (Delta T above 18 °F in 23–60% of May–July daylight hours in archived HRRR/GFS forecasts). Also confirm that the inversion cut-offs at 80 m are reasonable, since WSU uses 30 ft vs 6 ft from station towers.
 - [ ] **Verify citations and add direct links.** The sources list gives titles but no deep links yet. Confirm each one, especially the Minnesota and Iowa State pages and the GRDC Delta T fact sheet.
 - [ ] **Review the boom-height wind conversion.** It assumes neutral stability and a short-grass surface, even over a tall crop. Check whether the gust thresholds should also apply at boom height.
