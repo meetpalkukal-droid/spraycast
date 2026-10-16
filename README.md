@@ -26,6 +26,10 @@ Then open http://localhost:8000. You can also double-click `index.html`, but a l
 
 **Two views:** *Simple* (default) shows only the answer: the next good window, a 7-day row of day tiles and one day's daylight hours in plain sentences. *Detailed* adds the setup inputs (boom height above the crop, crop height, shortest useful window, rule set) and the full 24-hour breakdown with every factor. The setup applies in both views and is remembered in the browser. A link with `?lat=..&lon=..` opens straight to that field.
 
+**Saved fields:** growers can save the current pin under a name. Saved fields show as chips in the search card, and the last field viewed reopens automatically. Saved fields and sensitive sites are stored in the browser (localStorage), so they don't follow the grower to another device.
+
+**Sensitive neighbors:** in the Detailed view growers mark vineyards, beehives, homes and so on on the map. For each hour, if the wind blows toward a marked site within 2 mi (within ±45° of the downwind direction), the hour is rated Caution under general rules and Do not spray under restricted-label rules. Dicamba labels prohibit spraying when the wind blows toward neighboring sensitive crops but define no distance, so the 2 mi radius and ±45° sector are prototype values.
+
 **Inversions:** if the 80 m temperature is higher than the 2 m temperature, the hour is rated Do not spray. A difference within 0.3 °C rates Caution. If the model returns no 80 m data, the tool falls back to a calm + clear + near dawn/dusk proxy (NDSU AE1705).
 
 **Delta T:** calculated from 2 m temperature and RH with Stull's (2011) wet-bulb formula.
@@ -40,6 +44,7 @@ Then open http://localhost:8000. You can also double-click `index.html`, but a l
 - [ ] **Specialist review of thresholds.** The gust and rain thresholds (marked *Prototype* in the app) need a citation or sign-off. Also confirm that the inversion cut-offs at 80 m are reasonable, since WSU uses 30 ft vs 6 ft from station towers.
 - [ ] **Verify citations and add direct links.** The sources list gives titles but no deep links yet. Confirm each one, especially the Minnesota and Iowa State pages and the GRDC Delta T fact sheet.
 - [ ] **Review the boom-height wind conversion.** It assumes neutral stability and a short-grass surface, even over a tall crop. Check whether the gust thresholds should also apply at boom height.
+- [ ] **Review the sensitive-neighbor radius (2 mi) and angle (±45°).**
 - [ ] **Check the current dicamba label status** before shipping the "Restricted label" profile.
 - [ ] **Read the WSU/PNW forecast-based spray advisory paper** and align the logic where it makes sense.
 - [ ] **Check the competition in Idaho:** Bayer Spray App and WSU AgWeatherNet coverage.
@@ -47,7 +52,6 @@ Then open http://localhost:8000. You can also double-click `index.html`, but a l
 ## Next features (from the planning discussion)
 
 1. **Email alerts.** The night before, send something like "Tomorrow 8–11 AM looks good at North field." This needs a small backend: a scheduled job, a list of subscribers and pins, and Amazon SES (about $0.10 per 1,000 emails) or university mail.
-2. **Sensitive neighbours.** Let growers mark a vineyard, school or organic field, then flag hours when the wind blows toward it.
 3. **National Blend of Models** for days 3–7, if Open-Meteo exposes it with the needed variables.
 4. **Verification** against AgriMet and Idaho stations, and later station-based bias correction (the approach AgWeatherNet uses).
 5. **Grower testing** with a few Idaho growers or county educators before adding more features.

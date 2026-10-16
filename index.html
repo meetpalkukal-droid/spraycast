@@ -29,11 +29,27 @@
         <input id="search-input" type="search" placeholder="Address, town, or 46.73, -117.00" autocomplete="off">
         <button type="submit">Find</button>
       </form>
+      <div id="fields" class="fields" hidden></div>
       <div class="map-card-row">
         <button id="locate-btn" type="button" class="link-btn">Use my location</button>
         <span class="hint">or tap the map on your field</span>
       </div>
       <p id="location-info" class="location-info" hidden></p>
+      <div id="save-field" class="save-field" hidden>
+        <button id="save-btn" type="button" class="link-btn">☆ Save this field</button>
+        <span id="saved-as" class="saved-as" hidden></span>
+        <form id="save-form" class="save-form" hidden>
+          <label for="save-name" class="sr-only">Field name</label>
+          <input id="save-name" type="text" maxlength="40" placeholder="Field name, e.g. North 40" required>
+          <button type="submit">Save</button>
+          <button id="save-cancel" type="button" class="link-btn">Cancel</button>
+        </form>
+      </div>
+    </div>
+
+    <div id="map-banner" class="answer map-banner" hidden>
+      <p class="answer-text">Tap the map where the sensitive site is.</p>
+      <button id="banner-cancel" type="button" class="link-btn">Cancel</button>
     </div>
 
     <div id="answer" class="answer" aria-live="polite">
@@ -76,10 +92,19 @@
             <option value="general">General guidance</option>
             <option value="restricted">Restricted label (dicamba-style)</option>
           </select>
-          <small>Restricted adds label hours and a hard 3 mph minimum.</small>
+          <small>Restricted adds label hours, a hard 3 mph minimum, and no spraying toward sensitive sites.</small>
         </label>
       </div>
       <p id="setup-readout" class="setup-readout"></p>
+
+      <div class="sites">
+        <div class="setup-head">
+          <h3>Sensitive neighbors</h3>
+          <button id="add-site" type="button" class="link-btn">+ Mark one on the map</button>
+        </div>
+        <p class="setup-readout">Vineyards, orchards, vegetables, organic fields, beehives, homes, schools or water near this field. Hours when the wind blows toward one within 2 miles are flagged.</p>
+        <ul id="site-list" class="site-list"></ul>
+      </div>
     </section>
 
     <section aria-labelledby="week-title">
@@ -112,6 +137,7 @@
         <tr><td>Inversion: temp. at 260 ft vs. 6 ft</td><td>Cooler aloft</td><td>Nearly the same (within 0.5 °F)</td><td>Warmer aloft</td><td>[1] [5]</td></tr>
         <tr><td>Delta T (dry bulb − wet bulb)</td><td>3.6–14.4 °F</td><td>&lt; 3.6 or 14.4–18 °F</td><td>&gt; 18 °F</td><td>[6] [7]</td></tr>
         <tr><td>Rain</td><td>—</td><td>&ge; 50% chance</td><td>&ge; 0.02 in/hour forecast</td><td>Prototype</td></tr>
+        <tr><td>Wind toward a sensitive site you marked (within 2 mi, ±45°)</td><td>Blowing away</td><td>Toward it (general)</td><td>Toward it (restricted labels)</td><td>[4] [11]; distance and angle Prototype</td></tr>
         <tr><td>Time of day</td><td>Daylight</td><td>Night (general)</td><td>Outside 1 h after sunrise to 2 h before sunset (restricted labels)</td><td>[4]</td></tr>
       </tbody>
     </table>
@@ -136,6 +162,7 @@
       <li>Open-Meteo.com Weather API (CC BY 4.0).</li>
       <li>NOAA Global Systems Laboratory, High-Resolution Rapid Refresh (HRRR).</li>
       <li>Allen, R.G., Pereira, L.S., Raes, D., Smith, M. (1998). <em>Crop Evapotranspiration: Guidelines for Computing Crop Water Requirements.</em> FAO Irrigation and Drainage Paper 56, Chapter 3, Eq. 47. Rome: FAO.</li>
+      <li>University of Illinois farmdoc, "Adjacent and neighboring: how far is that?" Dicamba labels prohibit application when the wind blows toward neighboring sensitive crops, and define no distance.</li>
     </ol>
   </details>
 

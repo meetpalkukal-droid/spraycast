@@ -16,6 +16,7 @@
       windIdeal: 7,
       windMax: 10,       // avoid spraying above 10 mph [3]
       labelTiming: false,
+      sensitiveNo: false, // wind toward a sensitive site: Caution
     },
     restricted: {
       label: "Restricted label (dicamba-style rules)",
@@ -24,6 +25,7 @@
       windIdeal: 10,
       windMax: 10,       // label: no application above 10 mph [4]
       labelTiming: true, // label: 1 h after sunrise to 2 h before sunset [4]
+      sensitiveNo: true, // label: do not apply when wind blows toward sensitive crops [4][11]
     },
   };
 
@@ -43,6 +45,9 @@
   };
   const boomWind = (u10, setup) => (isNum(u10) ? u10 * boomFactor(setup) : null);
 
+  // Sites the grower marked. Labels say "adjacent"/"neighboring" with no distance [11].
+  const SENSITIVE = { radiusMi: 2, sectorDeg: 45 };   // PROTOTYPE
+
   const GUST = { caution: 12, no: 15, spread: 8 };   // mph at 10 m, PROTOTYPE
   const INVERSION = { no: 0, caution: -0.3 };        // T(80 m) − T(2 m) in °C [1][5]
   const DELTA_T = { low: 2, high: 8, no: 10 };       // °C [6]; shown as 3.6 / 14.4 / 18 °F
@@ -59,8 +64,9 @@
   const dF = (c) => c * 9 / 5;
   const isNum = (x) => typeof x === "number" && !Number.isNaN(x);
 
-  /* h: { minutes, wind (boom height), wind10, gust, t2, t80, rh, cloud, precip, pop }
-   * ctx: { profile, sunrise, sunset }  (sunrise/sunset in minutes after local midnight)
+  /* h: { minutes, wind (boom height), wind10, gust, dir, t2, t80, rh, cloud, precip, pop }
+   * ctx: { profile, sunrise, sunset, sites }  (sunrise/sunset in minutes after local midnight;
+   *        sites: [{ label, where, bearing }] within SENSITIVE.radiusMi, bearing from the field in degrees)
    */
   function scoreHour(h, ctx) {
     const p = PROFILES[ctx.profile] || PROFILES.general;
@@ -82,6 +88,15 @@
       else if (h.gust >= GUST.caution || (isNum(h.wind10) && h.gust - h.wind10 >= GUST.spread))
         add("gust", LEVEL.CAUTION, "Gusty", `Gusts up to ${g} mph, which makes wind unsteady.`);
       else add("gust", LEVEL.GOOD, "Gusts OK", `Gusts up to ${g} mph.`);
+    }
+
+    if (isNum(h.dir) && ctx.sites && ctx.sites.length) {
+      const downwind = (h.dir + 180) % 360;
+      const hits = ctx.sites.filter((s) => Math.abs(((s.bearing - downwind + 540) % 360) - 180) <= SENSITIVE.sectorDeg);
+      if (hits.length) {
+        const names = hits.map((s) => `${s.label} (${s.where})`).join(", ");
+        add("sensitive", p.sensitiveNo ? LEVEL.NO : LEVEL.CAUTION, "Toward neighbor", `Wind is blowing toward ${names}.`);
+      } else add("sensitive", LEVEL.GOOD, "Away from neighbors", "Wind is blowing away from the sensitive sites you marked.");
     }
 
     if (isNum(h.t80) && isNum(h.t2)) {
@@ -121,5 +136,5 @@
     return { level, primary: level > 0 ? factors[0] : null, factors };
   }
 
-  global.SprayRules = { LEVEL, LEVEL_NAME, PROFILES, DEFAULT_SETUP, scoreHour, wetBulb, windAtHeight, boomFactor, boomWind };
+  global.SprayRules = { LEVEL, LEVEL_NAME, PROFILES, DEFAULT_SETUP, SENSITIVE, scoreHour, wetBulb, windAtHeight, boomFactor, boomWind };
 })(window);

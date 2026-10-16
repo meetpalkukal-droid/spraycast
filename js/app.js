@@ -25,7 +25,16 @@
   const state = {
     lat: null, lon: null, data: null, marker: null, selectedDay: null,
     mode: "simple", setup: { ...DEFAULTS },
+    fields: loadList("spray:fields"), sites: loadList("spray:sites"), addingSite: false,
   };
+
+  // Saved fields and sensitive sites live in this browser only.
+  function loadList(key) {
+    try { const v = JSON.parse(localStorage.getItem(key) || "[]"); return Array.isArray(v) ? v : []; } catch (_) { return []; }
+  }
+  function saveList(key, list) {
+    try { localStorage.setItem(key, JSON.stringify(list)); } catch (_) {}
+  }
 
   // ---------- Saved preferences (per browser; optional) ----------
   try {
@@ -67,7 +76,184 @@
   satellite.addTo(map);
   L.control.zoom({ position: "bottomright" }).addTo(map);
   L.control.layers({ Satellite: satellite, Streets: streets }, null, { position: "bottomright" }).addTo(map);
-  map.on("click", (e) => setLocation(e.latlng.lat, e.latlng.lng, null, false));
+  map.on("click", (e) => {
+    if (state.addingSite) return newSitePopup(e.latlng);
+    setLocation(e.latlng.lat, e.latlng.lng, null, false);
+  });
+
+  // ---------- Saved fields ----------
+  const isCurrent = (f) => state.lat != null && Math.abs(f.lat - state.lat) < 1e-4 && Math.abs(f.lon - state.lon) < 1e-4;
+
+  function renderFields() {
+    const wrap = $("fields");
+    wrap.replaceChildren();
+    wrap.hidden = !state.fields.length;
+    if (!state.fields.length) return;
+    wrap.appendChild(el("span", "fields-label", "My fields:"));
+    state.fields.forEach((f) => {
+      const chip = el("span", `field-chip${isCurrent(f) ? " current" : ""}`);
+      const go = el("button", "field-go", f.name);
+      go.type = "button";
+      go.addEventListener("click", () => setLocation(f.lat, f.lon, f.name, true));
+      const x = el("button", "field-x", "×");
+      x.type = "button";
+      x.setAttribute("aria-label", `Remove ${f.name}`);
+      x.addEventListener("click", () => {
+        if (!confirm(`Remove “${f.name}” from your fields?`)) return;
+        state.fields = state.fields.filter((g) => g !== f);
+        saveList("spray:fields", state.fields);
+        renderFields();
+        renderSaveRow();
+      });
+      chip.append(go, x);
+      wrap.appendChild(chip);
+    });
+  }
+
+  function renderSaveRow() {
+    $("save-field").hidden = state.lat == null;
+    const cur = state.fields.find(isCurrent);
+    const editing = !$("save-form").hidden;
+    $("save-btn").hidden = !!cur || editing;
+    $("saved-as").hidden = !cur;
+    if (cur) $("saved-as").textContent = `★ Saved as ${cur.name}`;
+  }
+
+  $("save-btn").addEventListener("click", () => {
+    $("save-form").hidden = false;
+    renderSaveRow();
+    $("save-name").focus();
+  });
+  $("save-cancel").addEventListener("click", () => { $("save-form").hidden = true; renderSaveRow(); });
+  $("save-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const name = $("save-name").value.trim();
+    if (!name || state.lat == null) return;
+    state.fields.push({ name, lat: +state.lat.toFixed(5), lon: +state.lon.toFixed(5) });
+    saveList("spray:fields", state.fields);
+    $("save-name").value = "";
+    $("save-form").hidden = true;
+    $("location-info").textContent = `${name} · ${state.lat.toFixed(4)}, ${state.lon.toFixed(4)}`;
+    renderFields();
+    renderSaveRow();
+  });
+
+  // ---------- Sensitive sites ----------
+  const SITE_TYPES = ["Vineyard or orchard", "Vegetables or specialty crop", "Organic field", "Beehives", "Home or school", "Water or wetland", "Other"];
+  const siteLayer = L.layerGroup().addTo(map);
+
+  function drawSites() {
+    siteLayer.clearLayers();
+    state.sites.forEach((s) => {
+      const m = L.circleMarker([s.lat, s.lon], {
+        radius: 9, color: "#ffffff", weight: 2, fillColor: "#7b3fe4", fillOpacity: 0.95, bubblingMouseEvents: false,
+      }).bindTooltip(s.name || s.type).addTo(siteLayer);
+      m.on("click", () => sitePopup(s));
+    });
+  }
+
+  function sitePopup(s) {
+    const box = el("div", "site-form");
+    box.appendChild(el("strong", null, s.name || s.type));
+    if (s.name) box.appendChild(el("span", "muted", s.type));
+    const rm = el("button", "link-btn", "Remove this site");
+    rm.type = "button";
+    rm.addEventListener("click", () => { map.closePopup(); removeSite(s); });
+    box.appendChild(rm);
+    L.popup().setLatLng([s.lat, s.lon]).setContent(box).openOn(map);
+  }
+
+  function newSitePopup(latlng) {
+    setAddingSite(false);
+    const form = el("form", "site-form");
+    form.appendChild(el("strong", null, "Sensitive site"));
+    const sel = el("select");
+    SITE_TYPES.forEach((t) => { const o = el("option", null, t); o.value = t; sel.appendChild(o); });
+    const name = el("input");
+    name.type = "text"; name.maxLength = 40; name.placeholder = "Name (optional)";
+    const row = el("div", "site-form-row");
+    const ok = el("button", null, "Add");
+    ok.type = "submit";
+    const cancel = el("button", "link-btn", "Cancel");
+    cancel.type = "button";
+    row.append(ok, cancel);
+    form.append(sel, name, row);
+    const popup = L.popup({ closeButton: false }).setLatLng(latlng).setContent(form).openOn(map);
+    cancel.addEventListener("click", () => map.closePopup(popup));
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      state.sites.push({ type: sel.value, name: name.value.trim(), lat: +latlng.lat.toFixed(5), lon: +latlng.lng.toFixed(5) });
+      saveList("spray:sites", state.sites);
+      map.closePopup(popup);
+      drawSites();
+      renderSiteList();
+      render();
+    });
+  }
+
+  function removeSite(s) {
+    state.sites = state.sites.filter((x) => x !== s);
+    saveList("spray:sites", state.sites);
+    drawSites();
+    renderSiteList();
+    render();
+  }
+
+  function setAddingSite(on) {
+    state.addingSite = on;
+    $("map-banner").hidden = !on;
+    $("answer").hidden = on;
+    $("map").style.cursor = on ? "crosshair" : "";
+  }
+  $("add-site").addEventListener("click", () => {
+    setAddingSite(true);
+    $("map").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  $("banner-cancel").addEventListener("click", () => setAddingSite(false));
+
+  // Distance (miles) and initial bearing (degrees) from the field to a point.
+  function distBearing(lat1, lon1, lat2, lon2) {
+    const rad = Math.PI / 180;
+    const p1 = lat1 * rad, p2 = lat2 * rad, dl = (lon2 - lon1) * rad;
+    const a = Math.sin((p2 - p1) / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
+    const dist = 2 * 3958.8 * Math.asin(Math.sqrt(a));
+    const y = Math.sin(dl) * Math.cos(p2);
+    const x = Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dl);
+    return { dist, bearing: (Math.atan2(y, x) / rad + 360) % 360 };
+  }
+  const fmtDist = (mi) => (mi < 0.2 ? `${Math.round(mi * 5280 / 10) * 10} ft` : `${mi.toFixed(1)} mi`);
+
+  // Marked sites near the current field, nearest first.
+  function nearbySites() {
+    if (state.lat == null) return [];
+    return state.sites.map((s) => {
+      const { dist, bearing } = distBearing(state.lat, state.lon, s.lat, s.lon);
+      return { site: s, dist, bearing, label: s.name || s.type, where: `${fmtDist(dist)} ${compass(bearing)}` };
+    }).filter((x) => x.dist <= R.SENSITIVE.radiusMi).sort((a, b) => a.dist - b.dist);
+  }
+
+  function renderSiteList() {
+    const ul = $("site-list");
+    ul.replaceChildren();
+    const near = nearbySites();
+    if (!near.length) {
+      ul.appendChild(el("li", "muted", state.lat == null ? "Pick a field first." : "None marked within 2 miles of this field."));
+    }
+    near.forEach((x) => {
+      const li = el("li");
+      li.appendChild(el("span", "site-dot"));
+      const t = el("span", null, x.label);
+      t.appendChild(el("span", "muted", ` · ${x.site.name ? x.site.type + " · " : ""}${x.where}`));
+      li.appendChild(t);
+      const rm = el("button", "link-btn", "Remove");
+      rm.type = "button";
+      rm.addEventListener("click", () => removeSite(x.site));
+      li.appendChild(rm);
+      ul.appendChild(li);
+    });
+    const far = state.sites.length - near.length;
+    if (far > 0 && state.lat != null) ul.appendChild(el("li", "muted", `${far} more marked farther than 2 miles away (not counted).`));
+  }
 
   // ---------- View mode ----------
   function applyMode() {
@@ -136,6 +322,13 @@
   // ---------- Data ----------
   async function setLocation(lat, lon, label, zoom) {
     state.lat = lat; state.lon = lon; state.selectedDay = null;
+    const saved = state.fields.find(isCurrent);
+    if (!label && saved) label = saved.name;
+    try { localStorage.setItem("spray:last", JSON.stringify({ lat, lon, label })); } catch (_) {}
+    $("save-form").hidden = true;
+    renderFields();
+    renderSaveRow();
+    renderSiteList();
     if (state.marker) state.marker.setLatLng([lat, lon]);
     else state.marker = L.marker([lat, lon]).addTo(map);
     if (zoom) map.setView([lat, lon], Math.max(map.getZoom(), 13));
@@ -176,16 +369,11 @@
     return data;
   }
 
-  // A shared or bookmarked link (?lat=..&lon=..) opens straight to that field.
-  const qs = new URLSearchParams(location.search);
-  const qLat = parseFloat(qs.get("lat")), qLon = parseFloat(qs.get("lon"));
-  if (Math.abs(qLat) <= 90 && Math.abs(qLon) <= 180) setLocation(qLat, qLon, null, true);
-
   // ---------- Analysis ----------
   const minutesOf = (iso) => +iso.slice(11, 13) * 60 + +iso.slice(14, 16);
   const isDaylight = (day, h) => h.minutes + 60 > day.sunrise && h.minutes < day.sunset;
 
-  function buildDays(d, setup) {
+  function buildDays(d, setup, sites) {
     const H = d.hourly;
     const col = (name, i) => (H[name] ? H[name][i] : null);
     const nowIso = d.current && d.current.time ? d.current.time : null;
@@ -211,7 +399,7 @@
       };
       h.past = nowHour !== null && t.slice(0, 13) < nowHour;
       h.now = nowHour !== null && t.slice(0, 13) === nowHour;
-      h.score = R.scoreHour(h, { profile: setup.profile, sunrise: day.sunrise, sunset: day.sunset });
+      h.score = R.scoreHour(h, { profile: setup.profile, sunrise: day.sunrise, sunset: day.sunset, sites });
       day.hours.push(h);
     });
 
@@ -352,7 +540,8 @@
     if (!state.data) return;
     const d = state.data;
     const setup = state.setup;
-    const days = buildDays(d, setup);
+    const sites = nearbySites();
+    const days = buildDays(d, setup, sites);
 
     if (state.selectedDay == null) {
       const firstGood = days.find((day) => day.windows.length);
@@ -364,7 +553,7 @@
     renderAnswer(next);
     renderHero(days, next);
     $("setup-note").textContent = state.mode === "simple"
-      ? `Rated for ${setupText(setup)}, using ${setup.profile === "restricted" ? "restricted-label" : "general"} rules. Change this in the Detailed view.`
+      ? `Rated for ${setupText(setup)}, using ${setup.profile === "restricted" ? "restricted-label" : "general"} rules${sites.length ? `, watching ${sites.length} sensitive site${sites.length > 1 ? "s" : ""} nearby` : ""}. Change this in the Detailed view.`
       : "";
     $("setup-note").hidden = state.mode !== "simple";
     $("setup-readout").textContent =
@@ -618,5 +807,21 @@
       h.pop != null && `Rain chance ${Math.round(h.pop)}%`,
     ].filter(Boolean);
     box.appendChild(el("p", "facts muted", facts.join(" · ")));
+  }
+
+  // ---------- Startup ----------
+  // A shared or bookmarked link (?lat=..&lon=..) opens straight to that field.
+  const qs = new URLSearchParams(location.search);
+  const qLat = parseFloat(qs.get("lat")), qLon = parseFloat(qs.get("lon"));
+  drawSites();
+  renderFields();
+  renderSiteList();
+  if (Math.abs(qLat) <= 90 && Math.abs(qLon) <= 180) setLocation(qLat, qLon, null, true);
+  else {
+    // Reopen the last field viewed in this browser.
+    try {
+      const last = JSON.parse(localStorage.getItem("spray:last") || "null");
+      if (last && Math.abs(last.lat) <= 90 && Math.abs(last.lon) <= 180) setLocation(last.lat, last.lon, last.label, true);
+    } catch (_) {}
   }
 })();
